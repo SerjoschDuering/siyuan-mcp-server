@@ -7,6 +7,7 @@
 
 import express, { Request, Response, NextFunction } from 'express';
 import { randomUUID } from 'node:crypto';
+import { Server } from 'node:http';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 
@@ -27,13 +28,25 @@ import { registerCompositeTools } from './tools/composite.js';
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 const HOST = process.env.HOST || '0.0.0.0';
 const BEARER_TOKEN = process.env.MCP_BEARER_TOKEN;
+const SESSION_TIMEOUT = 30 * 60 * 1000; // 30 minutes
 
 // Express app setup
 const app = express();
-app.use(express.json());
+app.use(express.json({ limit: '10mb' })); // Prevent DoS via large payloads
 
-// Session storage for active transports
-const transports: { [sessionId: string]: StreamableHTTPServerTransport } = {};
+// Session metadata tracking
+interface SessionInfo {
+  transport: StreamableHTTPServerTransport;
+  createdAt: number;
+  lastActivity: number;
+}
+
+const sessions: { [sessionId: string]: SessionInfo } = {};
+const initializationLocks = new Set<string>();
+const closingSessions = new Set<string>();
+
+// HTTP server instance for graceful shutdown
+let httpServer: Server | null = null;
 
 /**
  * Create and configure the MCP server
@@ -67,6 +80,39 @@ function createMcpServer(): McpServer {
 const mcpServer = createMcpServer();
 
 /**
+ * Session cleanup interval - removes inactive sessions
+ */
+setInterval(() => {
+  const now = Date.now();
+  for (const [sessionId, info] of Object.entries(sessions)) {
+    if (now - info.lastActivity > SESSION_TIMEOUT) {
+      console.error(`[MCP] Cleaning up inactive session: ${sessionId}`);
+      info.transport.close().catch(err =>
+        console.error(`[MCP] Error closing inactive session ${sessionId}:`, err)
+      );
+      delete sessions[sessionId];
+    }
+  }
+}, 60 * 1000); // Check every minute
+
+/**
+ * Update session activity timestamp
+ */
+function updateSessionActivity(sessionId: string): void {
+  if (sessions[sessionId]) {
+    sessions[sessionId].lastActivity = Date.now();
+  }
+}
+
+/**
+ * Validate session ID format (UUID v4)
+ */
+function validateSessionId(sessionId: string): boolean {
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  return uuidRegex.test(sessionId);
+}
+
+/**
  * Helper to check if request is an initialization request
  */
 function isInitializeRequest(body: any): boolean {
@@ -93,37 +139,89 @@ function authenticateRequest(req: Request, res: Response, next: NextFunction): v
 }
 
 /**
+ * Request logging middleware
+ */
+app.use((req, res, next) => {
+  const start = Date.now();
+  const sessionId = req.headers['mcp-session-id'];
+
+  res.on('finish', () => {
+    const duration = Date.now() - start;
+    console.error(
+      `[HTTP] ${req.method} ${req.path} ${res.statusCode} ${duration}ms` +
+      (sessionId ? ` session=${sessionId}` : '')
+    );
+  });
+
+  next();
+});
+
+/**
  * Main MCP endpoint handler
  */
 async function handleMcpRequest(req: Request, res: Response): Promise<void> {
   const sessionId = req.headers['mcp-session-id'] as string | undefined;
 
+  // Validate session ID format if provided
+  if (sessionId && !validateSessionId(sessionId)) {
+    res.status(400).json({ error: 'Invalid session ID format' });
+    return;
+  }
+
+  // Prevent concurrent initialization from same client (race condition fix)
+  const clientIp = req.ip || 'unknown';
+  const lockKey = sessionId || clientIp;
+
+  if (!sessionId && isInitializeRequest(req.body)) {
+    if (initializationLocks.has(lockKey)) {
+      res.status(429).json({ error: 'Initialization already in progress' });
+      return;
+    }
+    initializationLocks.add(lockKey);
+  }
+
   try {
     let transport: StreamableHTTPServerTransport;
 
-    if (sessionId && transports[sessionId]) {
+    if (sessionId && sessions[sessionId]) {
       // Reuse existing transport for this session
-      transport = transports[sessionId];
+      transport = sessions[sessionId].transport;
+      updateSessionActivity(sessionId);
     } else if (!sessionId && isInitializeRequest(req.body)) {
       // New session initialization
       transport = new StreamableHTTPServerTransport({
         sessionIdGenerator: () => randomUUID(),
         onsessioninitialized: (newSessionId) => {
+          if (closingSessions.has(newSessionId)) return;
+
           console.error(`[MCP] Session initialized: ${newSessionId}`);
-          transports[newSessionId] = transport;
+          const now = Date.now();
+          sessions[newSessionId] = {
+            transport,
+            createdAt: now,
+            lastActivity: now,
+          };
         },
         onsessionclosed: (closedSessionId) => {
+          if (closingSessions.has(closedSessionId)) return;
+          closingSessions.add(closedSessionId);
+
           console.error(`[MCP] Session closed: ${closedSessionId}`);
-          delete transports[closedSessionId];
+          delete sessions[closedSessionId];
+
+          setTimeout(() => closingSessions.delete(closedSessionId), 1000);
         },
       });
 
-      // Set up transport cleanup on close
+      // Set up transport cleanup on close (prevent race condition)
       transport.onclose = () => {
         const sid = transport.sessionId;
-        if (sid && transports[sid]) {
+        if (sid && closingSessions.has(sid)) return;
+        if (sid && sessions[sid]) {
+          closingSessions.add(sid);
           console.error(`[MCP] Transport closed for session ${sid}`);
-          delete transports[sid];
+          delete sessions[sid];
+          setTimeout(() => closingSessions.delete(sid), 1000);
         }
       };
 
@@ -144,8 +242,15 @@ async function handleMcpRequest(req: Request, res: Response): Promise<void> {
     if (!res.headersSent) {
       res.status(500).json({
         error: 'Internal Server Error',
-        message: error instanceof Error ? error.message : 'Unknown error',
+        message: process.env.NODE_ENV === 'production'
+          ? 'An error occurred'
+          : (error instanceof Error ? error.message : 'Unknown error'),
       });
+    }
+  } finally {
+    // Release initialization lock
+    if (!sessionId && isInitializeRequest(req.body)) {
+      initializationLocks.delete(lockKey);
     }
   }
 }
@@ -154,12 +259,19 @@ async function handleMcpRequest(req: Request, res: Response): Promise<void> {
  * Health check endpoint
  */
 app.get('/health', (req: Request, res: Response) => {
+  const memoryUsage = process.memoryUsage();
+
   res.json({
     status: 'ok',
     server: 'siyuan-mcp-server',
     version: '2.0.0',
     transport: 'streamable-http',
-    activeSessions: Object.keys(transports).length,
+    activeSessions: Object.keys(sessions).length,
+    uptime: Math.floor(process.uptime()),
+    memory: {
+      heapUsed: Math.round(memoryUsage.heapUsed / 1024 / 1024) + 'MB',
+      heapTotal: Math.round(memoryUsage.heapTotal / 1024 / 1024) + 'MB',
+    },
     timestamp: new Date().toISOString(),
   });
 });
@@ -176,7 +288,7 @@ app.delete('/mcp', authenticateRequest, handleMcpRequest);
  */
 async function main() {
   try {
-    app.listen(PORT, HOST, () => {
+    httpServer = app.listen(PORT, HOST, () => {
       console.error(`[MCP] SiYuan MCP Server v2.0 (Streamable HTTP)`);
       console.error(`[MCP] Listening on http://${HOST}:${PORT}/mcp`);
       console.error(`[MCP] Health check: http://${HOST}:${PORT}/health`);
@@ -185,6 +297,7 @@ async function main() {
       } else {
         console.error(`[MCP] Authentication: Disabled (set MCP_BEARER_TOKEN to enable)`);
       }
+      console.error(`[MCP] Session timeout: ${SESSION_TIMEOUT / 1000 / 60} minutes`);
       console.error(`[MCP] Total tools registered: 52 (46 atomic + 6 composite)`);
     });
   } catch (error) {
@@ -193,24 +306,45 @@ async function main() {
   }
 }
 
-// Handle graceful shutdown
-process.on('SIGINT', async () => {
-  console.error('[MCP] Shutting down server...');
+/**
+ * Graceful shutdown handler
+ */
+async function gracefulShutdown(signal: string) {
+  console.error(`[MCP] Received ${signal}, shutting down gracefully...`);
 
-  // Close all active transports
-  for (const sessionId in transports) {
-    try {
-      await transports[sessionId].close();
-    } catch (error) {
-      console.error(`[MCP] Error closing transport for session ${sessionId}:`, error);
-    }
+  // Stop accepting new connections
+  if (httpServer) {
+    await new Promise<void>((resolve) => {
+      httpServer!.close(() => {
+        console.error('[MCP] HTTP server closed');
+        resolve();
+      });
+    });
   }
+
+  // Close all active sessions with timeout
+  const closePromises = Object.values(sessions).map(info =>
+    info.transport.close().catch(err =>
+      console.error('[MCP] Transport close error:', err)
+    )
+  );
+
+  // Wait for all sessions to close (with 5 second timeout)
+  await Promise.race([
+    Promise.allSettled(closePromises),
+    new Promise(resolve => setTimeout(resolve, 5000))
+  ]);
 
   // Close MCP server
   await mcpServer.close();
+  console.error('[MCP] Shutdown complete');
 
   process.exit(0);
-});
+}
+
+// Handle graceful shutdown on SIGINT and SIGTERM
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 
 // Start the server
 main();
