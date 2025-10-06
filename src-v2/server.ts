@@ -11,6 +11,9 @@ import { Server } from 'node:http';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 
+// Import token storage for request-scoped token threading
+import { tokenStorage } from './client.js';
+
 // Tool registration modules
 import { registerNotebookTools } from './tools/notebook.js';
 import { registerDocumentTools } from './tools/document.js';
@@ -162,6 +165,19 @@ app.use((req, res, next) => {
 async function handleMcpRequest(req: Request, res: Response): Promise<void> {
   const sessionId = req.headers['mcp-session-id'] as string | undefined;
 
+  // SECURITY: Extract SiYuan token from client headers
+  const siyuanToken = req.headers['x-siyuan-token'] as string | undefined;
+
+  // Validate token is present
+  if (!siyuanToken) {
+    res.status(401).json({
+      error: 'Unauthorized',
+      message: 'X-SiYuan-Token header is required. ' +
+               'Add your SiYuan API token to client configuration headers.'
+    });
+    return;
+  }
+
   // Validate session ID format if provided
   if (sessionId && !validateSessionId(sessionId)) {
     res.status(400).json({ error: 'Invalid session ID format' });
@@ -235,8 +251,10 @@ async function handleMcpRequest(req: Request, res: Response): Promise<void> {
       return;
     }
 
-    // Handle the request through the transport
-    await transport.handleRequest(req, res, req.body);
+    // SECURITY: Thread SiYuan token through AsyncLocalStorage for this request
+    await tokenStorage.run(siyuanToken, async () => {
+      await transport.handleRequest(req, res, req.body);
+    });
   } catch (error) {
     console.error('[MCP] Error handling request:', error);
     if (!res.headersSent) {

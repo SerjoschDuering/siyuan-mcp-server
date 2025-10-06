@@ -1,12 +1,24 @@
 #!/usr/bin/env node
 
 /**
- * SiYuan MCP Server v2.0
- * Atomic tools architecture - each SiYuan API endpoint is a direct MCP tool
+ * SiYuan MCP Server v2.0 - STDIO Transport (Local Development Only)
+ *
+ * ⚠️ SECURITY WARNING:
+ * STDIO transport requires SIYUAN_TOKEN environment variable.
+ * This is LESS SECURE than Streamable HTTP (which gets token from client headers).
+ *
+ * Use STDIO only for:
+ * - Local development
+ * - Single-user desktop environments (Claude Desktop on localhost)
+ *
+ * For production/multi-user deployments, use Streamable HTTP transport instead.
  */
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+
+// Import token storage for STDIO token threading
+import { tokenStorage } from './client.js';
 
 // Tool registration modules
 import { registerNotebookTools } from './tools/notebook.js';
@@ -69,18 +81,52 @@ function setupHandlers() {
  */
 async function main() {
   try {
+    // STDIO transport requires token from environment
+    const STDIO_TOKEN = process.env.SIYUAN_TOKEN;
+
+    if (!STDIO_TOKEN) {
+      console.error('');
+      console.error('❌ ERROR: SIYUAN_TOKEN environment variable is required for STDIO transport');
+      console.error('');
+      console.error('   Get your token from SiYuan Settings → About');
+      console.error('');
+      console.error('   Configure Claude Desktop:');
+      console.error('   {');
+      console.error('     "mcpServers": {');
+      console.error('       "siyuan": {');
+      console.error('         "command": "node",');
+      console.error('         "args": ["/path/to/dist/server-stdio.js"],');
+      console.error('         "env": {');
+      console.error('           "SIYUAN_TOKEN": "your-token-here",');
+      console.error('           "SIYUAN_API_URL": "http://localhost:6806"');
+      console.error('         }');
+      console.error('       }');
+      console.error('     }');
+      console.error('   }');
+      console.error('');
+      console.error('   ⚠️  For production deployments, use Streamable HTTP transport instead');
+      console.error('   (sends token from client headers, more secure)');
+      console.error('');
+      process.exit(1);
+    }
+
     // Register all tools
     registerAllTools();
 
     // Set up request handlers
     setupHandlers();
 
-    // Start server with stdio transport
-    const transport = new StdioServerTransport();
-    await server.connect(transport);
+    // SECURITY: Thread token through AsyncLocalStorage for entire server lifecycle
+    // This makes the token available to all API calls without passing it explicitly
+    await tokenStorage.run(STDIO_TOKEN, async () => {
+      // Start server with stdio transport
+      const transport = new StdioServerTransport();
+      await server.connect(transport);
 
-    // Log successful startup to stderr (won't interfere with MCP protocol on stdout)
-    console.error('SiYuan MCP Server v2.0 started successfully');
+      // Log successful startup to stderr (won't interfere with MCP protocol on stdout)
+      console.error('SiYuan MCP Server v2.0 (STDIO) started successfully');
+      console.error('⚠️  Using STDIO transport with env var token (local dev only)');
+    });
   } catch (error) {
     console.error('Failed to start SiYuan MCP Server:', error);
     process.exit(1);

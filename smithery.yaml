@@ -3,29 +3,26 @@
 startCommand:
   type: stdio
   configSchema:
-    # JSON Schema defining the configuration options for the MCP.
     type: object
     required:
       - siyuanToken
     properties:
       siyuanToken:
         type: string
-        description: The API token for SiYuan. (Required)
+        description: SiYuan API token (found in Settings -> About in SiYuan Note)
       siyuanApiUrl:
         type: string
         default: http://localhost:6806
-        description: The SiYuan API URL.
-  commandFunction:
-    # A JS function that produces the CLI command based on the given config to start the MCP on stdio.
-    |-
+        description: SiYuan API endpoint URL
+  commandFunction: |-
     (config) => ({
       command: 'node',
-      args: ['dist/server.js'],
+      args: ['dist/server-stdio.js'],
       env: {
         SIYUAN_TOKEN: config.siyuanToken,
-        SIYUAN_API_URL: config.siyuanApiUrl
+        SIYUAN_API_URL: config.siyuanApiUrl || 'http://localhost:6806'
       }
     })
   exampleConfig:
-    siyuanToken: your_token_here
+    siyuanToken: your-siyuan-token-here
     siyuanApiUrl: http://localhost:6806

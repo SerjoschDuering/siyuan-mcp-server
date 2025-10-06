@@ -4,6 +4,53 @@
 
 **Transport:** Streamable HTTP (MCP Specification 2025-03-26) - Supports multiple simultaneous clients with session isolation.
 
+## 🔐 CRITICAL SECURITY MODEL
+
+**THE MCP SERVER URL IS PUBLIC - TOKENS MUST COME FROM CLIENT HEADERS!**
+
+```
+Client (PRIVATE)              MCP Server (PUBLIC)           SiYuan API (PRIVATE)
+─────────────────            ─────────────────────          ─────────────────────
+Stores: SiYuan Token   ──>   Receives: X-SiYuan-Token  ──>  Uses: Client's token
+                             Stores: NOTHING
+```
+
+**Why?**
+- MCP server is accessible via HTTPS (public URL)
+- Anyone who discovers `https://mcp.yourdomain.com/siyuan` could access your notes if token is on server
+- Client sends token with EVERY request via `X-SiYuan-Token` header
+- Server is stateless - no secrets stored
+
+### 🔒 HTTPS Is Mandatory
+
+**⚠️ CRITICAL: Always use HTTPS in production!**
+
+Without TLS/HTTPS:
+- ❌ Tokens sent in HTTP headers can be intercepted in transit
+- ❌ Anyone on the network can read your SiYuan token
+- ❌ Man-in-the-middle attacks can steal credentials
+
+**Caddy automatically handles HTTPS:**
+- ✅ Automatic TLS certificate from Let's Encrypt
+- ✅ Auto-renewal (no manual intervention)
+- ✅ HTTP→HTTPS redirect by default
+
+**Never expose MCP server on HTTP in production!**
+
+**Correct Setup:**
+```json
+{
+  "mcpServers": {
+    "siyuan": {
+      "url": "https://mcp.yourdomain.com/siyuan",
+      "headers": {
+        "X-SiYuan-Token": "YOUR_PRIVATE_TOKEN"
+      }
+    }
+  }
+}
+```
+
 ## General Strategy
 
 ### Architecture Overview
@@ -138,17 +185,17 @@ services:
   # Your existing services (n8n, siyuan, etc.)...
 
   # SiYuan MCP Server - Handles multiple clients via sessions
+  # 🔐 SECURITY: NO SIYUAN_TOKEN HERE! Token comes from client headers.
   siyuan-mcp:
     image: ghcr.io/yourusername/siyuan-mcp-server:latest
     container_name: siyuan-mcp
     environment:
-      - SIYUAN_TOKEN=${SIYUAN_TOKEN}
+      # SiYuan API endpoint (internal Docker network)
       - SIYUAN_API_URL=http://siyuan:6806
       - NODE_ENV=production
       - PORT=3000
-      # Optional: Enable authentication
-      - MCP_AUTH_ENABLED=true
-      - MCP_AUTH_TOKEN=${SIYUAN_MCP_TOKEN}
+      # ⚠️ DO NOT SET SIYUAN_TOKEN HERE!
+      # Token MUST come from client via X-SiYuan-Token header
     expose:
       - "3000"
     labels:
@@ -203,41 +250,59 @@ networks:
 - ✅ Health checks for reliability
 - ✅ Watchtower auto-updates
 
+## Routing Strategy: Path-Based vs Subdomain
+
+### Recommended: PATH-BASED ROUTING ✅
+
+**One domain, multiple paths** - simpler, more efficient
+
+```
+mcp.yourdomain.com/siyuan     → SiYuan MCP
+mcp.yourdomain.com/openai     → OpenAI MCP
+mcp.yourdomain.com/github     → GitHub MCP
+```
+
+**Benefits:**
+- ✅ One domain, one SSL cert
+- ✅ Easy to add new MCPs (just add a Caddy route)
+- ✅ Better organization
+- ✅ Simpler DNS management
+
+### Alternative: Subdomain Routing (More Complex)
+
+**Separate subdomain per MCP** - requires DNS entries for each
+
+```
+siyuan.mcp.yourdomain.com     → SiYuan MCP
+openai.mcp.yourdomain.com     → OpenAI MCP
+github.mcp.yourdomain.com     → GitHub MCP
+```
+
+**Drawbacks:**
+- ❌ DNS entry for each MCP
+- ❌ More complex certificate management
+- ❌ Harder to scale
+
+---
+
 ## Caddyfile Configuration
+
+### Path-Based Routing (Recommended)
 
 Add to your existing Caddyfile:
 
 ```caddy
-# SiYuan MCP Server
-siyuan-mcp.yourdomain.com {
-    # Streamable HTTP requires proper headers
-    reverse_proxy siyuan-mcp:3000 {
-        # Preserve MCP session headers
-        header_up Mcp-Session-Id {header.Mcp-Session-Id}
-        header_up Authorization {header.Authorization}
-
-        # Enable streaming
-        flush_interval -1
-    }
-}
-
-# S3 MCP Server
-s3-mcp.yourdomain.com {
-    reverse_proxy s3-mcp:3001 {
-        header_up Mcp-Session-Id {header.Mcp-Session-Id}
-        header_up Authorization {header.Authorization}
-        flush_interval -1
-    }
-}
-
-# Optional: Single domain with path-based routing
+# Single domain with path-based routing
 mcp.yourdomain.com {
     # Route /siyuan/* to SiYuan MCP
     handle /siyuan/* {
         uri strip_prefix /siyuan
         reverse_proxy siyuan-mcp:3000 {
+            # CRITICAL: Preserve client token header
+            header_up X-SiYuan-Token {header.X-SiYuan-Token}
             header_up Mcp-Session-Id {header.Mcp-Session-Id}
-            header_up Authorization {header.Authorization}
+
+            # Enable streaming
             flush_interval -1
         }
     }
@@ -246,10 +311,42 @@ mcp.yourdomain.com {
     handle /s3/* {
         uri strip_prefix /s3
         reverse_proxy s3-mcp:3001 {
+            header_up X-S3-Credentials {header.X-S3-Credentials}
             header_up Mcp-Session-Id {header.Mcp-Session-Id}
-            header_up Authorization {header.Authorization}
             flush_interval -1
         }
+    }
+
+    # Easy to add more MCPs
+    handle /openai/* {
+        uri strip_prefix /openai
+        reverse_proxy openai-mcp:3002 {
+            header_up X-OpenAI-Key {header.X-OpenAI-Key}
+            header_up Mcp-Session-Id {header.Mcp-Session-Id}
+            flush_interval -1
+        }
+    }
+}
+```
+
+### Subdomain Routing (Alternative)
+
+```caddy
+# SiYuan MCP Server
+siyuan.mcp.yourdomain.com {
+    reverse_proxy siyuan-mcp:3000 {
+        header_up X-SiYuan-Token {header.X-SiYuan-Token}
+        header_up Mcp-Session-Id {header.Mcp-Session-Id}
+        flush_interval -1
+    }
+}
+
+# S3 MCP Server
+s3.mcp.yourdomain.com {
+    reverse_proxy s3-mcp:3001 {
+        header_up X-S3-Credentials {header.X-S3-Credentials}
+        header_up Mcp-Session-Id {header.Mcp-Session-Id}
+        flush_interval -1
     }
 }
 ```
@@ -576,24 +673,24 @@ Add to `~/.config/claude/config.json`:
 {
   "mcpServers": {
     "siyuan": {
-      "url": "https://siyuan-mcp.yourdomain.com",
+      "url": "https://mcp.yourdomain.com/siyuan",
       "transport": "streamable-http",
       "headers": {
-        "Authorization": "Bearer YOUR_SIYUAN_MCP_TOKEN"
+        "X-SiYuan-Token": "YOUR_PRIVATE_SIYUAN_TOKEN"
       }
     },
     "s3": {
-      "url": "https://s3-mcp.yourdomain.com",
+      "url": "https://mcp.yourdomain.com/s3",
       "transport": "streamable-http",
       "headers": {
-        "Authorization": "Bearer YOUR_S3_MCP_TOKEN"
+        "X-S3-Credentials": "YOUR_PRIVATE_S3_CREDENTIALS"
       }
     }
   }
 }
 ```
 
-**Note:** Claude Code support for Streamable HTTP may require MCP SDK updates. Check SDK version compatibility.
+**🔐 Security Note:** Token is sent in headers with each request. Server does NOT store it.
 
 ### Claude Desktop (Streamable HTTP)
 
@@ -603,17 +700,17 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 {
   "mcpServers": {
     "siyuan": {
-      "url": "https://siyuan-mcp.yourdomain.com",
+      "url": "https://mcp.yourdomain.com/siyuan",
       "transport": "streamable-http",
       "headers": {
-        "Authorization": "Bearer YOUR_SIYUAN_MCP_TOKEN"
+        "X-SiYuan-Token": "YOUR_PRIVATE_SIYUAN_TOKEN"
       }
     },
     "s3": {
-      "url": "https://s3-mcp.yourdomain.com",
+      "url": "https://mcp.yourdomain.com/s3",
       "transport": "streamable-http",
       "headers": {
-        "Authorization": "Bearer YOUR_S3_MCP_TOKEN"
+        "X-S3-Credentials": "YOUR_PRIVATE_S3_CREDENTIALS"
       }
     }
   }

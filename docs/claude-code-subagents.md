@@ -659,7 +659,7 @@ Invoke with: "Use the [agent-name] to..."
 **Solutions**:
 1. Verify `SIYUAN_TOKEN` is correct and not expired
 2. Check SiYuan is running (default: http://localhost:6806)
-3. Test MCP server: `echo '{"type":"system.getVersion","params":{}}' | npx @onigeya/siyuan-mcp-server`
+3. Test MCP server locally: `node dist/server-stdio.js` (requires built project)
 4. Check MCP server logs for errors
 
 ## Advanced Configuration
