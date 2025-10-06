@@ -1,0 +1,63 @@
+name: Deploy MCP Server to Hetzner
+
+on:
+  push:
+    branches: [ main, v2-clean-atomic-tools ]
+  workflow_dispatch:
+
+env:
+  MCP_NAME: siyuan
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=latest
+            type=sha,prefix={{branch}}-
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+      - name: Deploy to Hetzner via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.HETZNER_HOST }}
+          username: ${{ secrets.HETZNER_USER }}
+          key: ${{ secrets.HETZNER_SSH_KEY }}
+          script: |
+            /mnt/volume_fra1_01/run8n-docker-caddy/deploy-mcp.sh \
+              ${{ env.MCP_NAME }} \
+              ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+
+      - name: Deployment complete
+        run: |
+          echo "✅ MCP Server deployed successfully!"
+          echo "🌐 Available at: https://mcp.run8n.xyz/${{ env.MCP_NAME }}"
