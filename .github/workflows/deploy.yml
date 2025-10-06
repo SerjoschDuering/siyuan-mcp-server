@@ -4,6 +4,15 @@ on:
   push:
     branches: [ main, v2-clean-atomic-tools ]
   workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - production
+          - staging
 
 env:
   MCP_NAME: siyuan
