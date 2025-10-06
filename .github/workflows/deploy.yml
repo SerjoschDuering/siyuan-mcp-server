@@ -53,7 +53,7 @@ jobs:
           username: ${{ secrets.HETZNER_USER }}
           key: ${{ secrets.HETZNER_SSH_KEY }}
           script: |
-            /mnt/volume_fra1_01/run8n-docker-caddy/deploy-mcp.sh \
+            /home/joo/run8n/deploy-mcp.sh \
               ${{ env.MCP_NAME }} \
               ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
 
