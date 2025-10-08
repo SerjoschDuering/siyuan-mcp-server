@@ -17,8 +17,8 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 
-// Import token storage for STDIO token threading
-import { tokenStorage } from './client.js';
+// Import token storage for STDIO context threading
+import { tokenStorage, SiYuanContext } from './client.js';
 
 // Tool registration modules
 import { registerNotebookTools } from './tools/notebook.js';
@@ -81,8 +81,9 @@ function setupHandlers() {
  */
 async function main() {
   try {
-    // STDIO transport requires token from environment
+    // STDIO transport requires token and API URL from environment
     const STDIO_TOKEN = process.env.SIYUAN_TOKEN;
+    const STDIO_API_URL = process.env.SIYUAN_API_URL || 'http://localhost:6806';
 
     if (!STDIO_TOKEN) {
       console.error('');
@@ -116,9 +117,14 @@ async function main() {
     // Set up request handlers
     setupHandlers();
 
-    // SECURITY: Thread token through AsyncLocalStorage for entire server lifecycle
-    // This makes the token available to all API calls without passing it explicitly
-    await tokenStorage.run(STDIO_TOKEN, async () => {
+    // SECURITY: Thread SiYuan context through AsyncLocalStorage for entire server lifecycle
+    // This makes the token and URL available to all API calls without passing them explicitly
+    const context: SiYuanContext = {
+      token: STDIO_TOKEN,
+      apiUrl: STDIO_API_URL
+    };
+
+    await tokenStorage.run(context, async () => {
       // Start server with stdio transport
       const transport = new StdioServerTransport();
       await server.connect(transport);

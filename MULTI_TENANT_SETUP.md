@@ -65,9 +65,25 @@ services:
 
 ---
 
+## Transport Support by Client
+
+| Client | HTTP Transport | STDIO Transport |
+|--------|---------------|-----------------|
+| **Claude Code** | ✅ Supported | ✅ Supported |
+| **Claude Desktop** | ❌ Not Supported | ✅ Supported (Only) |
+| **n8n** | ✅ Supported | ❌ Not Supported |
+
+⚠️ **Important**: Claude Desktop **only supports STDIO transport**, not HTTP!
+
+---
+
 ## Client Configuration
 
-### 1. Claude Desktop
+### 1. Claude Desktop (STDIO Transport Only)
+
+**⚠️ Claude Desktop does NOT support HTTP transport** - it only works with local STDIO servers.
+
+**For local SiYuan (same machine):**
 
 Edit `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS):
 
@@ -75,34 +91,42 @@ Edit `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS):
 {
   "mcpServers": {
     "siyuan": {
-      "url": "https://mcp.run8n.xyz/siyuan",
-      "transport": "streamable-http",
-      "headers": {
-        "X-SiYuan-Token": "YOUR_SIYUAN_TOKEN_HERE",
-        "X-SiYuan-URL": "http://localhost:6806"
+      "command": "node",
+      "args": ["/absolute/path/to/siyuan-mcp-server/dist/server-stdio.js"],
+      "env": {
+        "SIYUAN_TOKEN": "YOUR_SIYUAN_TOKEN_HERE",
+        "SIYUAN_API_URL": "http://localhost:6806"
       }
     }
   }
 }
 ```
 
-**For remote SiYuan:**
+**Important Notes:**
+- Use **absolute path** to the compiled `server-stdio.js` file
+- Build the project first: `npm run build`
+- Token and URL come from `env`, not `headers`
+- Only works if SiYuan is on the same machine
+
+**For remote SiYuan (advanced):**
+
+Claude Desktop cannot directly connect to remote MCP servers. You need a local stdio-to-HTTP proxy like [minibridge](https://github.com/Acuvity/minibridge) or [mcp-remote](https://github.com/nd/mcp-remote):
+
 ```json
 {
   "mcpServers": {
     "siyuan": {
-      "url": "https://mcp.run8n.xyz/siyuan",
-      "transport": "streamable-http",
-      "headers": {
-        "X-SiYuan-Token": "YOUR_SIYUAN_TOKEN",
-        "X-SiYuan-URL": "https://your-siyuan.example.com"
+      "command": "npx",
+      "args": ["-y", "mcp-remote", "https://mcp.run8n.xyz/siyuan"],
+      "env": {
+        "HTTP_HEADERS": "X-SiYuan-Token:YOUR_TOKEN,X-SiYuan-URL:http://localhost:6806"
       }
     }
   }
 }
 ```
 
-### 2. Claude Code
+### 2. Claude Code (HTTP Transport Supported)
 
 Edit `~/.config/claude/config.json`:
 
