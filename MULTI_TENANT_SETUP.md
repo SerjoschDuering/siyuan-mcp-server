@@ -117,7 +117,7 @@ Claude Desktop cannot directly connect to remote MCP servers. You need a local s
   "mcpServers": {
     "siyuan": {
       "command": "npx",
-      "args": ["-y", "mcp-remote", "https://mcp.run8n.xyz/siyuan"],
+      "args": ["-y", "mcp-remote", "https://mcp.run8n.xyz/siyuan/mcp"],
       "env": {
         "HTTP_HEADERS": "X-SiYuan-Token:YOUR_TOKEN,X-SiYuan-URL:http://localhost:6806"
       }
@@ -134,7 +134,7 @@ Edit `~/.config/claude/config.json`:
 {
   "mcpServers": {
     "siyuan": {
-      "url": "https://mcp.run8n.xyz/siyuan",
+      "url": "https://mcp.run8n.xyz/siyuan/mcp",
       "transport": "streamable-http",
       "headers": {
         "X-SiYuan-Token": "YOUR_SIYUAN_TOKEN_HERE",
@@ -150,7 +150,7 @@ Edit `~/.config/claude/config.json`:
 In your n8n workflow, configure the MCP Client node:
 
 **Connection Settings:**
-- **Server URL:** `https://mcp.run8n.xyz/siyuan`
+- **Server URL:** `https://mcp.run8n.xyz/siyuan/mcp`
 - **Transport:** HTTP / Streamable HTTP
 
 **Headers:**
@@ -183,7 +183,7 @@ headers = {
 }
 
 response = requests.post(
-    "https://mcp.run8n.xyz/siyuan",
+    "https://mcp.run8n.xyz/siyuan/mcp",
     headers=headers,
     json={
         "jsonrpc": "2.0",
@@ -199,7 +199,7 @@ print(response.json())
 ### 5. Custom HTTP Client (JavaScript Example)
 
 ```javascript
-const response = await fetch('https://mcp.run8n.xyz/siyuan', {
+const response = await fetch('https://mcp.run8n.xyz/siyuan/mcp', {
   method: 'POST',
   headers: {
     'X-SiYuan-Token': 'YOUR_TOKEN',
@@ -258,7 +258,7 @@ http://siyuan:6806
 ### Test with curl:
 
 ```bash
-curl -X POST https://mcp.run8n.xyz/siyuan \
+curl -X POST https://mcp.run8n.xyz/siyuan/mcp \
   -H "X-SiYuan-Token: YOUR_TOKEN" \
   -H "X-SiYuan-URL: http://localhost:6806" \
   -H "Content-Type: application/json" \

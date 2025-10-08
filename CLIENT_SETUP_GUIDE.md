@@ -12,7 +12,22 @@
 
 ## Your Deployed HTTP Server
 
-**URL:** `https://mcp.run8n.xyz/siyuan`
+**MCP Endpoint:** `https://mcp.run8n.xyz/siyuan/mcp`
+**Health Check:** `https://mcp.run8n.xyz/siyuan/health`
+
+**URL Structure:**
+```
+https://mcp.run8n.xyz/siyuan/mcp
+       ↑              ↑       ↑
+       │              │       └─ MCP protocol endpoint
+       │              └───────── Caddy route (which container)
+       └──────────────────────── Your domain
+```
+
+**How it works:**
+1. Caddy sees `/siyuan/*` and routes to `siyuan-mcp` container
+2. Strips `/siyuan` prefix
+3. Forwards to container at `/mcp` endpoint
 
 **Works with:**
 - ✅ Claude Code
@@ -31,7 +46,7 @@ Add to `~/.config/claude/config.json`:
 {
   "mcpServers": {
     "siyuan": {
-      "url": "https://mcp.run8n.xyz/siyuan",
+      "url": "https://mcp.run8n.xyz/siyuan/mcp",
       "transport": "streamable-http",
       "headers": {
         "X-SiYuan-Token": "YOUR_SIYUAN_TOKEN",
@@ -58,7 +73,7 @@ claude mcp reload
 In your n8n workflow, add **MCP Client Tool** node:
 
 **Configuration:**
-- **Server URL:** `https://mcp.run8n.xyz/siyuan`
+- **Server URL:** `https://mcp.run8n.xyz/siyuan/mcp`
 - **Transport:** HTTP
 
 **Custom Headers:**
@@ -134,7 +149,7 @@ Then configure:
   "mcpServers": {
     "siyuan": {
       "command": "mcp-remote",
-      "args": ["https://mcp.run8n.xyz/siyuan"],
+      "args": ["https://mcp.run8n.xyz/siyuan/mcp"],
       "env": {
         "MCP_HEADERS": "X-SiYuan-Token:YOUR_TOKEN,X-SiYuan-URL:http://localhost:6806"
       }
@@ -150,7 +165,7 @@ Then configure:
 ### Test with curl (HTTP Server):
 
 ```bash
-curl -X POST https://mcp.run8n.xyz/siyuan \
+curl -X POST https://mcp.run8n.xyz/siyuan/mcp \
   -H "X-SiYuan-Token: YOUR_TOKEN" \
   -H "X-SiYuan-URL: http://localhost:6806" \
   -H "Content-Type: application/json" \
@@ -228,7 +243,7 @@ Based on your deployment:
 {
   "mcpServers": {
     "siyuan": {
-      "url": "https://mcp.run8n.xyz/siyuan",
+      "url": "https://mcp.run8n.xyz/siyuan/mcp",
       "transport": "streamable-http",
       "headers": {
         "X-SiYuan-Token": "YOUR_PERSONAL_TOKEN",
