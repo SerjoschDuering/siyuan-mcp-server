@@ -77,6 +77,31 @@ services:
 
 ---
 
+## Header Format Options
+
+The MCP server supports **two authentication header formats** for maximum compatibility:
+
+### Format 1: Separate Headers (Recommended)
+
+Best for: Claude Code, community nodes
+
+```
+X-SiYuan-Token: your-token-here
+X-SiYuan-URL: http://localhost:6806
+```
+
+### Format 2: Combined Header
+
+Best for: n8n official MCP Client Tool (single-header limitation)
+
+```
+X-SiYuan-Credentials: token=your-token-here,url=http://localhost:6806
+```
+
+**Both formats work identically** - choose based on your client's capabilities!
+
+---
+
 ## Client Configuration
 
 ### 1. Claude Desktop (STDIO Transport Only)
@@ -147,29 +172,38 @@ Edit `~/.config/claude/config.json`:
 
 ### 3. n8n AI Agent
 
-In your n8n workflow, configure the MCP Client node:
+**⚠️ Important:** n8n's official MCP Client Tool supports only ONE custom header.
+We support **both single-header and dual-header formats** for compatibility!
 
-**Connection Settings:**
+#### Option A: Official MCP Client Tool (Single Header)
+
+**Configuration:**
 - **Server URL:** `https://mcp.run8n.xyz/siyuan/mcp`
-- **Transport:** HTTP / Streamable HTTP
+- **Transport:** HTTP
+- **Authentication:** Header Auth
 
-**Headers:**
-Add two custom headers:
-```
-Header 1:
-  Name: X-SiYuan-Token
-  Value: {{$env.SIYUAN_TOKEN}}
-
-Header 2:
-  Name: X-SiYuan-URL
-  Value: {{$env.SIYUAN_URL}}
-```
+**Header Settings:**
+- **Header Name:** `X-SiYuan-Credentials`
+- **Header Value:** `token={{$env.SIYUAN_TOKEN}},url={{$env.SIYUAN_URL}}`
 
 **In n8n Environment Variables:**
 ```
 SIYUAN_TOKEN=your-token-here
 SIYUAN_URL=http://localhost:6806
 ```
+
+#### Option B: Community Node (Multiple Headers)
+
+Install `n8n-nodes-mcp` package:
+
+**Configuration:**
+- **Connection Type:** HTTP Streamable Transport
+- **URL:** `https://mcp.run8n.xyz/siyuan/mcp`
+- **Additional Headers:** (format: `name:value`, one per line)
+  ```
+  X-SiYuan-Token:{{$env.SIYUAN_TOKEN}}
+  X-SiYuan-URL:{{$env.SIYUAN_URL}}
+  ```
 
 ### 4. Custom HTTP Client (Python Example)
 

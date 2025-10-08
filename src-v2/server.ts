@@ -160,21 +160,56 @@ app.use((req, res, next) => {
 });
 
 /**
+ * Parse combined credentials header format
+ * Supports: "token=XXX,url=YYY" or "token=XXX, url=YYY" (with spaces)
+ */
+function parseCombinedCredentials(combined: string): { token?: string; url?: string } {
+  const parts = combined.split(',');
+  const result: { token?: string; url?: string } = {};
+
+  for (const part of parts) {
+    const [key, value] = part.split('=').map(s => s.trim());
+    if (key === 'token' && value) result.token = value;
+    if (key === 'url' && value) result.url = value;
+  }
+
+  return result;
+}
+
+/**
  * Main MCP endpoint handler
  */
 async function handleMcpRequest(req: Request, res: Response): Promise<void> {
   const sessionId = req.headers['mcp-session-id'] as string | undefined;
 
   // SECURITY: Extract SiYuan credentials from client headers (multi-tenant support)
-  const siyuanToken = req.headers['x-siyuan-token'] as string | undefined;
-  const siyuanUrl = req.headers['x-siyuan-url'] as string | undefined;
+  // Support two formats for maximum compatibility:
+  // 1. Combined header: X-SiYuan-Credentials (for n8n official MCP Client Tool)
+  // 2. Separate headers: X-SiYuan-Token + X-SiYuan-URL (for Claude Code, community nodes)
+
+  const combinedCreds = req.headers['x-siyuan-credentials'] as string | undefined;
+
+  let siyuanToken: string | undefined;
+  let siyuanUrl: string | undefined;
+
+  if (combinedCreds) {
+    // Parse combined format: "token=XXX,url=YYY"
+    const parsed = parseCombinedCredentials(combinedCreds);
+    siyuanToken = parsed.token;
+    siyuanUrl = parsed.url;
+  } else {
+    // Fall back to separate headers (original format)
+    siyuanToken = req.headers['x-siyuan-token'] as string | undefined;
+    siyuanUrl = req.headers['x-siyuan-url'] as string | undefined;
+  }
 
   // Validate both token and URL are present
   if (!siyuanToken) {
     res.status(401).json({
       error: 'Unauthorized',
-      message: 'X-SiYuan-Token header is required. ' +
-               'Add your SiYuan API token to client configuration headers.'
+      message: 'SiYuan token required. Use either:\n' +
+               '  • Separate headers: X-SiYuan-Token and X-SiYuan-URL\n' +
+               '  • Combined header: X-SiYuan-Credentials (format: token=XXX,url=YYY)'
     });
     return;
   }
@@ -182,9 +217,9 @@ async function handleMcpRequest(req: Request, res: Response): Promise<void> {
   if (!siyuanUrl) {
     res.status(400).json({
       error: 'Bad Request',
-      message: 'X-SiYuan-URL header is required. ' +
-               'Add your SiYuan API URL (e.g., http://localhost:6806 or https://your-siyuan.com) ' +
-               'to client configuration headers.'
+      message: 'SiYuan URL required. Use either:\n' +
+               '  • Separate headers: X-SiYuan-Token and X-SiYuan-URL\n' +
+               '  • Combined header: X-SiYuan-Credentials (format: token=XXX,url=YYY)'
     });
     return;
   }

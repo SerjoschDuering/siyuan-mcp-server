@@ -70,29 +70,44 @@ claude mcp reload
 
 ### 2. n8n (For Workflows)
 
-In your n8n workflow, add **MCP Client Tool** node:
+**⚠️ Note:** n8n's official MCP Client Tool only supports ONE custom header. We support both formats!
+
+#### Option A: Official MCP Client Tool (Recommended)
+
+Use the built-in MCP Client Tool with **combined header format**:
 
 **Configuration:**
 - **Server URL:** `https://mcp.run8n.xyz/siyuan/mcp`
 - **Transport:** HTTP
+- **Authentication:** Header Auth
 
-**Custom Headers:**
-Add two headers:
-```
-Header 1:
-  Name: X-SiYuan-Token
-  Value: {{$env.SIYUAN_TOKEN}}
+**Header Configuration:**
+- **Header Name:** `X-SiYuan-Credentials`
+- **Header Value:** `token={{$env.SIYUAN_TOKEN}},url={{$env.SIYUAN_URL}}`
 
-Header 2:
-  Name: X-SiYuan-URL
-  Value: {{$env.SIYUAN_URL}}
-```
+Or with hardcoded values:
+- **Header Value:** `token=your-token-here,url=http://localhost:6806`
 
 **In n8n Environment Variables:**
 ```
 SIYUAN_TOKEN=your-actual-token
 SIYUAN_URL=http://localhost:6806
 ```
+
+#### Option B: Community Node (Multiple Headers)
+
+Install community package `n8n-nodes-mcp` for full multi-header support:
+
+**Installation:** Settings → Community Nodes → Install `n8n-nodes-mcp`
+
+**Configuration:**
+- **Connection Type:** HTTP Streamable Transport
+- **URL:** `https://mcp.run8n.xyz/siyuan/mcp`
+- **Additional Headers:** (one per line)
+  ```
+  X-SiYuan-Token:{{$env.SIYUAN_TOKEN}}
+  X-SiYuan-URL:{{$env.SIYUAN_URL}}
+  ```
 
 ---
 
