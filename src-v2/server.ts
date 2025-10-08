@@ -11,8 +11,8 @@ import { Server } from 'node:http';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 
-// Import token storage for request-scoped token threading
-import { tokenStorage } from './client.js';
+// Import token storage for request-scoped context threading
+import { tokenStorage, SiYuanContext } from './client.js';
 
 // Tool registration modules
 import { registerNotebookTools } from './tools/notebook.js';
@@ -165,15 +165,37 @@ app.use((req, res, next) => {
 async function handleMcpRequest(req: Request, res: Response): Promise<void> {
   const sessionId = req.headers['mcp-session-id'] as string | undefined;
 
-  // SECURITY: Extract SiYuan token from client headers
+  // SECURITY: Extract SiYuan credentials from client headers (multi-tenant support)
   const siyuanToken = req.headers['x-siyuan-token'] as string | undefined;
+  const siyuanUrl = req.headers['x-siyuan-url'] as string | undefined;
 
-  // Validate token is present
+  // Validate both token and URL are present
   if (!siyuanToken) {
     res.status(401).json({
       error: 'Unauthorized',
       message: 'X-SiYuan-Token header is required. ' +
                'Add your SiYuan API token to client configuration headers.'
+    });
+    return;
+  }
+
+  if (!siyuanUrl) {
+    res.status(400).json({
+      error: 'Bad Request',
+      message: 'X-SiYuan-URL header is required. ' +
+               'Add your SiYuan API URL (e.g., http://localhost:6806 or https://your-siyuan.com) ' +
+               'to client configuration headers.'
+    });
+    return;
+  }
+
+  // Validate URL format (basic check)
+  try {
+    new URL(siyuanUrl);
+  } catch (error) {
+    res.status(400).json({
+      error: 'Bad Request',
+      message: `Invalid X-SiYuan-URL format: ${siyuanUrl}. Must be a valid HTTP(S) URL.`
     });
     return;
   }
@@ -251,8 +273,13 @@ async function handleMcpRequest(req: Request, res: Response): Promise<void> {
       return;
     }
 
-    // SECURITY: Thread SiYuan token through AsyncLocalStorage for this request
-    await tokenStorage.run(siyuanToken, async () => {
+    // SECURITY: Thread SiYuan context (token + URL) through AsyncLocalStorage for this request
+    const context: SiYuanContext = {
+      token: siyuanToken,
+      apiUrl: siyuanUrl
+    };
+
+    await tokenStorage.run(context, async () => {
       await transport.handleRequest(req, res, req.body);
     });
   } catch (error) {

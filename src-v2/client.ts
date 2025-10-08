@@ -4,8 +4,9 @@
  *
  * SECURITY MODEL:
  * - Token MUST come from client headers (X-SiYuan-Token)
- * - Server MUST NOT store tokens in environment variables
- * - Each request uses AsyncLocalStorage to thread token through
+ * - API URL MUST come from client headers (X-SiYuan-URL)
+ * - Server MUST NOT store tokens or API URLs (multi-tenant support)
+ * - Each request uses AsyncLocalStorage to thread credentials through
  */
 
 import { AsyncLocalStorage } from 'node:async_hooks';
@@ -13,23 +14,52 @@ import axios, { AxiosInstance, AxiosError } from 'axios';
 import FormData from 'form-data';
 
 /**
- * AsyncLocalStorage for threading SiYuan token through requests
+ * Request context containing SiYuan credentials
  */
-export const tokenStorage = new AsyncLocalStorage<string>();
+export interface SiYuanContext {
+  token: string;
+  apiUrl: string;
+}
+
+/**
+ * AsyncLocalStorage for threading SiYuan context through requests
+ */
+export const tokenStorage = new AsyncLocalStorage<SiYuanContext>();
 
 /**
  * SiYuan HTTP Client
- * No longer a singleton - token comes from AsyncLocalStorage per request
+ * Token and API URL come from AsyncLocalStorage per request (multi-tenant)
  */
 class SiYuanClient {
-  private client: AxiosInstance;
-  private apiUrl: string;
+  private defaultApiUrl: string;
 
   constructor() {
-    this.apiUrl = process.env.SIYUAN_API_URL || 'http://localhost:6806';
+    // Optional fallback for local development (stdio transport)
+    this.defaultApiUrl = process.env.SIYUAN_API_URL || 'http://localhost:6806';
+  }
 
-    this.client = axios.create({
-      baseURL: this.apiUrl,
+  /**
+   * Get current request context from AsyncLocalStorage
+   */
+  private getContext(): SiYuanContext {
+    const context = tokenStorage.getStore();
+    if (!context) {
+      throw new Error(
+        'No SiYuan context available. ' +
+        'Client must send X-SiYuan-Token and X-SiYuan-URL headers with each request.'
+      );
+    }
+    return context;
+  }
+
+  /**
+   * Create axios client for current request context
+   */
+  private getClient(): AxiosInstance {
+    const context = this.getContext();
+
+    const client = axios.create({
+      baseURL: context.apiUrl,
       headers: {
         'Content-Type': 'application/json'
       },
@@ -37,7 +67,7 @@ class SiYuanClient {
     });
 
     // Response interceptor for error handling
-    this.client.interceptors.response.use(
+    client.interceptors.response.use(
       (response) => {
         // Check SiYuan API response code
         if (response.data?.code !== 0) {
@@ -56,50 +86,32 @@ class SiYuanClient {
         }
         if (error.code === 'ECONNREFUSED') {
           throw new Error(
-            `Cannot connect to SiYuan at ${this.apiUrl}. ` +
+            `Cannot connect to SiYuan at ${context.apiUrl}. ` +
             'Make sure SiYuan is running and the API URL is correct.'
           );
         }
         throw error;
       }
     );
-  }
 
-  /**
-   * Get current request token from AsyncLocalStorage
-   */
-  private getToken(): string {
-    const token = tokenStorage.getStore();
-    if (!token) {
-      throw new Error(
-        'No SiYuan token available. ' +
-        'Client must send X-SiYuan-Token header with each request.'
-      );
-    }
-    return token;
-  }
-
-  /**
-   * Get the axios client instance
-   */
-  public getClient(): AxiosInstance {
-    return this.client;
+    return client;
   }
 
   /**
    * POST request to SiYuan API
-   * Token automatically injected from AsyncLocalStorage
+   * Token and URL automatically injected from AsyncLocalStorage
    *
    * @param endpoint - API endpoint path (e.g., '/api/notebook/lsNotebooks')
    * @param data - Request body data
    * @returns API response
    */
   public async post(endpoint: string, data: any) {
-    const token = this.getToken();
+    const context = this.getContext();
+    const client = this.getClient();
 
-    return this.client.post(endpoint, data, {
+    return client.post(endpoint, data, {
       headers: {
-        'Authorization': `Token ${token}`,
+        'Authorization': `Token ${context.token}`,
         'Content-Type': 'application/json'
       }
     });
@@ -108,22 +120,23 @@ class SiYuanClient {
   /**
    * POST multipart form data to SiYuan API
    * Used for file uploads that require multipart/form-data
-   * Token automatically injected from AsyncLocalStorage
+   * Token and URL automatically injected from AsyncLocalStorage
    *
    * @param endpoint - API endpoint path
    * @param formData - FormData object containing the multipart data
    * @returns API response
    */
   public async postMultipart(endpoint: string, formData: FormData) {
-    const token = this.getToken();
+    const context = this.getContext();
+    const client = this.getClient();
 
     // Get form headers (includes boundary)
     const formHeaders = formData.getHeaders ? formData.getHeaders() : {};
 
-    return this.client.post(endpoint, formData, {
+    return client.post(endpoint, formData, {
       headers: {
         ...formHeaders,
-        'Authorization': `Token ${token}`,
+        'Authorization': `Token ${context.token}`,
       },
       // Important for file uploads
       maxContentLength: Infinity,
