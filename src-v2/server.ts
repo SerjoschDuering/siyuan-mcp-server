@@ -26,6 +26,7 @@ import { registerAttributeTools } from './tools/attribute.js';
 import { registerTemplateTools } from './tools/template.js';
 import { registerSystemTools } from './tools/system.js';
 import { registerCompositeTools } from './tools/composite.js';
+import { registerReferenceTools } from './tools/reference.js';
 
 // Configuration from environment
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
@@ -75,6 +76,7 @@ function createMcpServer(): McpServer {
   registerTemplateTools(server);
   registerSystemTools(server);
   registerCompositeTools(server);
+  registerReferenceTools(server);
 
   return server;
 }
@@ -378,7 +380,7 @@ async function main() {
         console.error(`[MCP] Authentication: Disabled (set MCP_BEARER_TOKEN to enable)`);
       }
       console.error(`[MCP] Session timeout: ${SESSION_TIMEOUT / 1000 / 60} minutes`);
-      console.error(`[MCP] Total tools registered: 49 (43 atomic + 6 composite)`);
+      console.error(`[MCP] Total tools registered: 53 (47 atomic + 6 composite)`);
     });
   } catch (error) {
     console.error('[MCP] Failed to start server:', error);

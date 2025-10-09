@@ -32,6 +32,7 @@ import { registerAttributeTools } from './tools/attribute.js';
 import { registerTemplateTools } from './tools/template.js';
 import { registerSystemTools } from './tools/system.js';
 import { registerCompositeTools } from './tools/composite.js';
+import { registerReferenceTools } from './tools/reference.js';
 
 /**
  * Create and configure the MCP server
@@ -62,6 +63,9 @@ function registerAllTools() {
 
   // Register composite/smart tools for optimized access
   registerCompositeTools(server);
+
+  // Register reference/documentation tools
+  registerReferenceTools(server);
 }
 
 /**

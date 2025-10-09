@@ -66,7 +66,7 @@ SiYuan MCP Server v2.0 offers **two transport modes** to fit different use cases
 
 **Best for**: Remote access, multiple AI clients, production deployments
 
-- **File**: `dist/server.ts`
+- **File**: `dist/server.js`
 - **Transport**: Streamable HTTP
 - **Security**: Token sent via HTTP header (`X-SiYuan-Token`) per request
 - **Use case**: Remote access, multi-client scenarios, production servers
@@ -146,6 +146,18 @@ Add the SiYuan server:
 ```
 
 **Note:** For local development, you can run the server with `npm run dev` (default port 3000). For production deployment, see the deployment documentation.
+
+### Environment Variables
+
+The MCP server can be configured using the following environment variables:
+
+| Variable | Description | Default | Required |
+|----------|-------------|---------|----------|
+| `SIYUAN_API_URL` | SiYuan API endpoint URL | `http://127.0.0.1:6806` | No |
+| `SIYUAN_TOKEN` | Your SiYuan API token (STDIO mode only) | - | For STDIO |
+| `PORT` | HTTP server port | `3000` | No |
+
+**Note:** In HTTP mode, the token and URL are sent via headers (`X-SiYuan-Token` and `X-SiYuan-URL`) with each request, not environment variables. See the configuration examples above.
 
 #### Step 3: Verify Connection
 

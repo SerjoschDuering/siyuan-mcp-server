@@ -1,0 +1,138 @@
+{
+  "$schema": "https://raw.githubusercontent.com/anthropics/mcpb/main/dist/mcpb-manifest.schema.json",
+  "manifest_version": "0.2",
+  "name": "siyuan-mcp-server",
+  "version": "2.0.0",
+  "display_name": "SiYuan Note",
+  "description": "Connect Claude to your SiYuan Note workspace with 53 specialized tools",
+  "long_description": "Enable AI-powered note management with SiYuan Note. Features 47 atomic tools for fine-grained control and 6 composite tools for optimized workflows including workspace navigation, task management, daily notes automation, and intelligent search. Includes reference tools with SQL examples, chart patterns, template guides, and search strategies. Supports notebook management, document operations, block control, file management, SQL queries, attributes, exports, templates, and system functions.",
+
+  "author": {
+    "name": "Serjosch Duering",
+    "url": "https://github.com/SerjoschDuering"
+  },
+
+  "icon": "icon.png",
+  "homepage": "https://github.com/SerjoschDuering/siyuan-mcp-server",
+  "documentation": "https://github.com/SerjoschDuering/siyuan-mcp-server/blob/main/docs/CONFIGURATION.md",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/SerjoschDuering/siyuan-mcp-server.git"
+  },
+
+  "server": {
+    "type": "node",
+    "entry_point": "dist/server-stdio.js",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/dist/server-stdio.js"],
+      "env": {
+        "SIYUAN_API_URL": "${user_config.siyuan_url}",
+        "SIYUAN_TOKEN": "${user_config.siyuan_token}"
+      }
+    }
+  },
+
+  "user_config": {
+    "siyuan_url": {
+      "type": "string",
+      "title": "SiYuan API URL",
+      "description": "The URL where your SiYuan Note instance is running (e.g., http://localhost:6806 for local, http://192.168.1.100:6806 for network)",
+      "default": "http://localhost:6806",
+      "required": true
+    },
+    "siyuan_token": {
+      "type": "string",
+      "title": "SiYuan API Token",
+      "description": "Your SiYuan API token (found in SiYuan Settings → About). This is securely stored and never exposed.",
+      "required": true,
+      "sensitive": true
+    }
+  },
+
+  "compatibility": {
+    "claude_desktop": ">=0.8.0",
+    "platforms": ["darwin", "win32"],
+    "runtimes": {
+      "node": ">=18.0.0"
+    }
+  },
+
+  "tools": [
+    {
+      "name": "siyuan_listNotebooks",
+      "description": "List all notebooks in SiYuan workspace"
+    },
+    {
+      "name": "siyuan_getContentTree",
+      "description": "Get complete workspace hierarchy with content previews (composite tool)"
+    },
+    {
+      "name": "siyuan_getDocumentOutline",
+      "description": "Get detailed document structure and outline (composite tool)"
+    },
+    {
+      "name": "siyuan_searchWithContext",
+      "description": "Search content with surrounding context blocks (composite tool)"
+    },
+    {
+      "name": "siyuan_getRecentContent",
+      "description": "Get recently modified documents and blocks (composite tool)"
+    },
+    {
+      "name": "siyuan_getOrCreateDailyNote",
+      "description": "Get or create today's daily note (composite tool)"
+    },
+    {
+      "name": "siyuan_findTasks",
+      "description": "Find and manage TODO items across workspace (composite tool)"
+    },
+    {
+      "name": "siyuan_createDocWithMd",
+      "description": "Create a new document with Markdown content"
+    },
+    {
+      "name": "siyuan_insertBlock",
+      "description": "Insert content block with positioning"
+    },
+    {
+      "name": "siyuan_appendBlock",
+      "description": "Append block as last child"
+    },
+    {
+      "name": "siyuan_updateBlock",
+      "description": "Update existing block content"
+    },
+    {
+      "name": "siyuan_deleteBlock",
+      "description": "Delete content block (destructive)"
+    },
+    {
+      "name": "siyuan_sql",
+      "description": "Execute SQL query on SiYuan database"
+    },
+    {
+      "name": "siyuan_uploadAsset",
+      "description": "Upload images, PDFs, and other files to workspace"
+    },
+    {
+      "name": "siyuan_getSQLExamples",
+      "description": "Get common SQL query examples for the SiYuan database"
+    },
+    {
+      "name": "siyuan_getChartExamples",
+      "description": "Get examples for creating charts and visualizations (Mermaid, ECharts, PlantUML)"
+    },
+    {
+      "name": "siyuan_getTemplateExamples",
+      "description": "Get examples for using SiYuan templates with Sprig functions"
+    },
+    {
+      "name": "siyuan_getSearchPatterns",
+      "description": "Get advanced search patterns and techniques for finding content"
+    }
+  ],
+
+  "keywords": ["siyuan", "notes", "knowledge-base", "pkm", "markdown", "note-taking", "mcp"],
+  "license": "MIT"
+}

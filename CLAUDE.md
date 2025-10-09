@@ -31,6 +31,18 @@ Your primary sources of information are the consolidated documentation files in 
 *   **Build for production:** `npm run build`
 *   **Start compiled server:** `npm start`
 *   **Clean build artifacts:** `npm run clean`
+*   **Validate MCPB manifest:** `npm run mcpb:validate`
+*   **Build MCPB package:** `npm run mcpb:pack` (builds TypeScript + packages .mcpb)
+*   **Validate + pack MCPB:** `npm run mcpb:all`
+
+### MCPB Package Rebuild
+
+The `.mcpb` file is a packaged snapshot (ZIP archive) containing compiled code, dependencies, manifest, and docs. **You MUST rebuild after:**
+
+- Code changes (src-v2/*.ts files)
+- Dependency updates (npm install)
+- Manifest changes (manifest.json, icon.png)
+- Documentation updates (users won't see changes until rebuilt)
 
 ## Project Status
 
