@@ -1,6 +1,6 @@
 /**
  * Document Tools Module
- * Implements all 11 document-related atomic tools for SiYuan MCP Server v2.0
+ * Implements all 7 document-related atomic tools for SiYuan MCP Server v2.0
  *
  * API Reference: docs/siyuan_API.md lines 316-590
  */
@@ -47,37 +47,7 @@ export function registerDocumentTools(server: McpServer) {
   );
 
   // ============================================================================
-  // 2. siyuan_renameDoc - Rename a document by path
-  // ============================================================================
-
-  server.tool(
-    'siyuan_renameDoc',
-    'Rename a document by specifying its notebook ID and path. This operation is idempotent.',
-    {
-      notebook: z.string().describe('Notebook ID (e.g., "20210831090520-7dvbdv0")'),
-      path: z.string().describe('Document path (e.g., "/20210902210113-0avi12f.sy")'),
-      title: z.string().describe('New document title'),
-    },
-    async ({ notebook, path, title }, _extra) => {
-      const response = await siyuanClient.post('/api/filetree/renameDoc', {
-        notebook,
-        path,
-        title,
-      });
-
-      return {
-        content: [
-          {
-            type: 'text',
-            text: `Document renamed successfully.\nNotebook: ${notebook}\nPath: ${path}\nNew title: ${title}`,
-          },
-        ],
-      };
-    }
-  );
-
-  // ============================================================================
-  // 3. siyuan_renameDocByID - Rename a document by ID
+  // 2. siyuan_renameDocByID - Rename a document by ID
   // ============================================================================
 
   server.tool(
@@ -105,36 +75,7 @@ export function registerDocumentTools(server: McpServer) {
   );
 
   // ============================================================================
-  // 4. siyuan_removeDoc - Remove a document by path
-  // ============================================================================
-
-  server.tool(
-    'siyuan_removeDoc',
-    'Remove (delete) a document by specifying its notebook ID and path. This is a destructive and idempotent operation.',
-    {
-      notebook: z.string().describe('Notebook ID (e.g., "20210831090520-7dvbdv0")'),
-      path: z.string().describe('Document path (e.g., "/20210902210113-0avi12f.sy")'),
-    },
-    { destructiveHint: true },
-    async ({ notebook, path }, _extra) => {
-      const response = await siyuanClient.post('/api/filetree/removeDoc', {
-        notebook,
-        path,
-      });
-
-      return {
-        content: [
-          {
-            type: 'text',
-            text: `Document removed successfully.\nNotebook: ${notebook}\nPath: ${path}`,
-          },
-        ],
-      };
-    }
-  );
-
-  // ============================================================================
-  // 5. siyuan_removeDocByID - Remove a document by ID
+  // 3. siyuan_removeDocByID - Remove a document by ID
   // ============================================================================
 
   server.tool(
@@ -161,37 +102,7 @@ export function registerDocumentTools(server: McpServer) {
   );
 
   // ============================================================================
-  // 6. siyuan_moveDocs - Move documents by paths
-  // ============================================================================
-
-  server.tool(
-    'siyuan_moveDocs',
-    'Move one or more documents to a new location by specifying source paths and target notebook/path',
-    {
-      fromPaths: z.array(z.string()).describe('Source document paths (e.g., ["/20210917220056-yxtyl7i.sy"])'),
-      toNotebook: z.string().describe('Target notebook ID (e.g., "20210817205410-2kvfpfn")'),
-      toPath: z.string().describe('Target path (e.g., "/")'),
-    },
-    async ({ fromPaths, toNotebook, toPath }, _extra) => {
-      const response = await siyuanClient.post('/api/filetree/moveDocs', {
-        fromPaths,
-        toNotebook,
-        toPath,
-      });
-
-      return {
-        content: [
-          {
-            type: 'text',
-            text: `Documents moved successfully.\nFrom paths: ${fromPaths.join(', ')}\nTo notebook: ${toNotebook}\nTo path: ${toPath}`,
-          },
-        ],
-      };
-    }
-  );
-
-  // ============================================================================
-  // 7. siyuan_moveDocsByID - Move documents by IDs
+  // 4. siyuan_moveDocsByID - Move documents by IDs
   // ============================================================================
 
   server.tool(
@@ -219,38 +130,7 @@ export function registerDocumentTools(server: McpServer) {
   );
 
   // ============================================================================
-  // 8. siyuan_getHPathByPath - Get human-readable path by path
-  // ============================================================================
-
-  server.tool(
-    'siyuan_getHPathByPath',
-    'Get the human-readable path of a document based on its notebook ID and path. This is a read-only and idempotent operation.',
-    {
-      notebook: z.string().describe('Notebook ID (e.g., "20210831090520-7dvbdv0")'),
-      path: z.string().describe('Document path (e.g., "/20210917220500-sz588nq/20210917220056-yxtyl7i.sy")'),
-    },
-    { readOnlyHint: true, idempotentHint: true },
-    async ({ notebook, path }, _extra) => {
-      const response = await siyuanClient.post('/api/filetree/getHPathByPath', {
-        notebook,
-        path,
-      });
-
-      const hPath = response.data.data;
-
-      return {
-        content: [
-          {
-            type: 'text',
-            text: `Human-readable path: ${hPath}\n\nNotebook: ${notebook}\nPath: ${path}`,
-          },
-        ],
-      };
-    }
-  );
-
-  // ============================================================================
-  // 9. siyuan_getHPathByID - Get human-readable path by ID
+  // 5. siyuan_getHPathByID - Get human-readable path by ID
   // ============================================================================
 
   server.tool(

@@ -6,11 +6,15 @@ Your primary sources of information are the consolidated documentation files in 
 
 ## Key Documentation Files
 
-*   **`docs/USER_GUIDE.md`**: **Consult this first for "how-to" questions.** It contains user-facing setup instructions, configuration, workflow examples, and composite tool usage. Use this to understand how to *use* the tools.
+*   **`docs/CONFIGURATION.md`**: **Complete setup and configuration reference.** Contains installation instructions, environment variables, client configuration for Claude Desktop/Code/n8n, multi-tenant setup, and troubleshooting. Use this for all setup questions.
 
-*   **`docs/DEVELOPER_GUIDE.md`**: **Consult this for contributions or architectural questions.** It contains the project architecture, design rationale, contribution guidelines, coding standards, and the development roadmap. Use this to understand how to *modify or extend* the project.
+*   **`docs/USER_GUIDE.md`**: **Usage workflows and examples.** Contains core workflows, composite tool usage patterns, workflow examples, and best practices. Use this to understand how to *use* the tools effectively.
 
-*   **`docs/TOOL_REFERENCE.md`**: **Consult this for specific tool details.** It is the complete API-style reference for every tool, detailing its exact parameters and return structure. Use this as a technical dictionary of capabilities.
+*   **`docs/DEPLOYMENT.md`**: **Production deployment guide.** Contains Docker deployment, reverse proxy setup (Caddy/Nginx), process management (PM2/systemd), multi-tenant architecture, monitoring, and security best practices. Use this for production deployments.
+
+*   **`docs/DEVELOPER_GUIDE.md`**: **Contributions and architecture.** Contains project architecture, design rationale, contribution guidelines, coding standards, and development roadmap. Use this to understand how to *modify or extend* the project.
+
+*   **`docs/TOOL_REFERENCE.md`**: **Complete API reference (49 tools).** Complete API-style reference for every tool, detailing exact parameters and return structure. Use this as a technical dictionary of capabilities.
 
 ### Additional Reference Files
 
@@ -32,7 +36,7 @@ Your primary sources of information are the consolidated documentation files in 
 
 **Version**: 2.0.0
 **Status**: ✅ Production Ready
-**Tools**: 52 (46 atomic + 6 composite)
+**Tools**: 49 (43 atomic + 6 composite)
 **Branch**: `v2-clean-atomic-tools`
 
 ## Environment Variables
@@ -73,14 +77,16 @@ Your primary sources of information are the consolidated documentation files in 
 
 ## Documentation Structure
 
-All documentation is now organized in the `docs/` directory:
+All documentation is organized in the `docs/` directory:
 
 ```
 docs/
-├── USER_GUIDE.md              # User-facing documentation
-├── DEVELOPER_GUIDE.md         # Developer/contributor guide
-├── TOOL_REFERENCE.md          # Complete API reference (52 tools)
-├── claude-code-subagents.md   # Subagent patterns
+├── CONFIGURATION.md           # Setup & configuration (all clients)
+├── USER_GUIDE.md              # Usage workflows & examples
+├── DEPLOYMENT.md              # Production deployment guide
+├── DEVELOPER_GUIDE.md         # Architecture & contributing
+├── TOOL_REFERENCE.md          # Complete API reference (49 tools)
+├── claude-code-subagents.md   # Advanced subagent patterns
 ├── mcp-best-practices.md      # MCP development guidelines
 └── siyuan_API.md              # SiYuan API specification
 ```

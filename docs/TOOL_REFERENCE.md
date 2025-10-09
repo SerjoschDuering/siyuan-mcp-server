@@ -1,8 +1,8 @@
 # SiYuan MCP Server - Tool Reference
 
 **Version**: 2.0.0
-**Last Updated**: 2025-01-06
-**Total Tools**: 52 (46 atomic + 6 composite)
+**Last Updated**: 2025-01-09
+**Total Tools**: 49 (43 atomic + 6 composite)
 
 This document is the complete API reference for all tools provided by the SiYuan MCP Server.
 
@@ -12,7 +12,7 @@ This document is the complete API reference for all tools provided by the SiYuan
 
 1. [Atomic Tools](#atomic-tools)
    - [1.1 Notebooks (8 tools)](#11-notebooks)
-   - [1.2 Documents (11 tools)](#12-documents)
+   - [1.2 Documents (7 tools)](#12-documents)
    - [1.3 Blocks (11 tools)](#13-blocks)
    - [1.4 Files (4 tools)](#14-files)
    - [1.5 Assets (1 tool)](#15-assets)
@@ -199,19 +199,6 @@ siyuan_createDocWithMd({
 
 ---
 
-#### `siyuan_renameDoc`
-
-**Description**: Rename a document by its path.
-
-**Parameters**:
-- `notebook` (string): Notebook ID
-- `path` (string): Current document path
-- `title` (string): New document title
-
-**Annotations**: None
-
----
-
 #### `siyuan_renameDocByID`
 
 **Description**: Rename a document by its ID (preferred over path-based rename).
@@ -222,18 +209,6 @@ siyuan_createDocWithMd({
 - `title` (string): New document title
 
 **Annotations**: None
-
----
-
-#### `siyuan_removeDoc`
-
-**Description**: Delete a document by its path.
-
-**Parameters**:
-- `notebook` (string): Notebook ID
-- `path` (string): Document path
-
-**Annotations**: `destructiveHint`
 
 ---
 
@@ -249,19 +224,6 @@ siyuan_createDocWithMd({
 
 ---
 
-#### `siyuan_moveDocs`
-
-**Description**: Move multiple documents by paths.
-
-**Parameters**:
-- `fromPaths` (string[]): Array of source paths
-- `toNotebook` (string): Target notebook ID
-- `toPath` (string): Target path
-
-**Annotations**: None
-
----
-
 #### `siyuan_moveDocsByID`
 
 **Description**: Move multiple documents by IDs (preferred).
@@ -272,18 +234,6 @@ siyuan_createDocWithMd({
 - `toPath` (string): Target path
 
 **Annotations**: None
-
----
-
-#### `siyuan_getHPathByPath`
-
-**Description**: Get human-readable path from storage path.
-
-**Parameters**:
-- `notebook` (string): Notebook ID
-- `path` (string): Storage path
-
-**Annotations**: `readOnlyHint`
 
 ---
 
@@ -1121,4 +1071,4 @@ Composite tools aggregate multiple API calls for optimized, hierarchical respons
 
 ---
 
-**Version**: 2.0.0 | **Tools**: 52 (46 atomic + 6 composite) | **Status**: Production Ready ✅
+**Version**: 2.0.0 | **Tools**: 49 (43 atomic + 6 composite) | **Status**: Production Ready ✅

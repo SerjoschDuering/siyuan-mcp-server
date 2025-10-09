@@ -378,7 +378,7 @@ async function main() {
         console.error(`[MCP] Authentication: Disabled (set MCP_BEARER_TOKEN to enable)`);
       }
       console.error(`[MCP] Session timeout: ${SESSION_TIMEOUT / 1000 / 60} minutes`);
-      console.error(`[MCP] Total tools registered: 52 (46 atomic + 6 composite)`);
+      console.error(`[MCP] Total tools registered: 49 (43 atomic + 6 composite)`);
     });
   } catch (error) {
     console.error('[MCP] Failed to start server:', error);
