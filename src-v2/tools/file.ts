@@ -29,6 +29,8 @@ export function registerFileTools(server: McpServer) {
     async ({ path }, _extra) => {
       const response = await siyuanClient.post('/api/file/getFile', {
         path
+      }, {
+        timeout: 300000 // 5 minutes for large files
       });
 
       // Note: /api/file/getFile returns file content directly with different status codes
@@ -114,6 +116,8 @@ export function registerFileTools(server: McpServer) {
     async ({ path }, _extra) => {
       const response = await siyuanClient.post('/api/file/readDir', {
         path
+      }, {
+        timeout: 60000 // 1 minute for directory listing
       });
 
       const entries = response.data.data;

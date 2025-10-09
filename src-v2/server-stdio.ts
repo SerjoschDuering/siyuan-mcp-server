@@ -20,19 +20,8 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 // Import token storage for STDIO context threading
 import { tokenStorage, SiYuanContext } from './client.js';
 
-// Tool registration modules
-import { registerNotebookTools } from './tools/notebook.js';
-import { registerDocumentTools } from './tools/document.js';
-import { registerBlockTools } from './tools/block.js';
-import { registerSearchTools } from './tools/search.js';
-import { registerAssetTools } from './tools/asset.js';
-import { registerExportTools } from './tools/export.js';
-import { registerFileTools } from './tools/file.js';
-import { registerAttributeTools } from './tools/attribute.js';
-import { registerTemplateTools } from './tools/template.js';
-import { registerSystemTools } from './tools/system.js';
-import { registerCompositeTools } from './tools/composite.js';
-import { registerReferenceTools } from './tools/reference.js';
+// Centralized tool registration
+import { registerAllTools } from './tools/index.js';
 
 /**
  * Create and configure the MCP server
@@ -45,28 +34,6 @@ const server = new McpServer({
   },
 });
 
-/**
- * Register all SiYuan tools
- */
-function registerAllTools() {
-  // Register tools by category
-  registerNotebookTools(server);
-  registerDocumentTools(server);
-  registerBlockTools(server);
-  registerSearchTools(server);
-  registerAssetTools(server);
-  registerExportTools(server);
-  registerFileTools(server);
-  registerAttributeTools(server);
-  registerTemplateTools(server);
-  registerSystemTools(server);
-
-  // Register composite/smart tools for optimized access
-  registerCompositeTools(server);
-
-  // Register reference/documentation tools
-  registerReferenceTools(server);
-}
 
 /**
  * Set up request handlers
@@ -116,7 +83,7 @@ async function main() {
     }
 
     // Register all tools
-    registerAllTools();
+    registerAllTools(server);
 
     // Set up request handlers
     setupHandlers();

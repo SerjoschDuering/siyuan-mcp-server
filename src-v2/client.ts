@@ -54,8 +54,9 @@ class SiYuanClient {
 
   /**
    * Create axios client for current request context
+   * @param timeout - Optional timeout in milliseconds (default: 30000ms)
    */
-  private getClient(): AxiosInstance {
+  private getClient(timeout: number = 30000): AxiosInstance {
     const context = this.getContext();
 
     const client = axios.create({
@@ -63,7 +64,7 @@ class SiYuanClient {
       headers: {
         'Content-Type': 'application/json'
       },
-      timeout: 30000 // 30 second timeout
+      timeout // Configurable timeout per operation
     });
 
     // Response interceptor for error handling
@@ -103,11 +104,12 @@ class SiYuanClient {
    *
    * @param endpoint - API endpoint path (e.g., '/api/notebook/lsNotebooks')
    * @param data - Request body data
+   * @param options - Optional request options (timeout override)
    * @returns API response
    */
-  public async post(endpoint: string, data: any) {
+  public async post(endpoint: string, data: any, options?: { timeout?: number }) {
     const context = this.getContext();
-    const client = this.getClient();
+    const client = this.getClient(options?.timeout);
 
     return client.post(endpoint, data, {
       headers: {
@@ -124,11 +126,12 @@ class SiYuanClient {
    *
    * @param endpoint - API endpoint path
    * @param formData - FormData object containing the multipart data
+   * @param options - Optional request options (timeout override)
    * @returns API response
    */
-  public async postMultipart(endpoint: string, formData: FormData) {
+  public async postMultipart(endpoint: string, formData: FormData, options?: { timeout?: number }) {
     const context = this.getContext();
-    const client = this.getClient();
+    const client = this.getClient(options?.timeout);
 
     // Get form headers (includes boundary)
     const formHeaders = formData.getHeaders ? formData.getHeaders() : {};

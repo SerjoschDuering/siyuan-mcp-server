@@ -14,19 +14,8 @@ import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/
 // Import token storage for request-scoped context threading
 import { tokenStorage, SiYuanContext } from './client.js';
 
-// Tool registration modules
-import { registerNotebookTools } from './tools/notebook.js';
-import { registerDocumentTools } from './tools/document.js';
-import { registerBlockTools } from './tools/block.js';
-import { registerSearchTools } from './tools/search.js';
-import { registerAssetTools } from './tools/asset.js';
-import { registerExportTools } from './tools/export.js';
-import { registerFileTools } from './tools/file.js';
-import { registerAttributeTools } from './tools/attribute.js';
-import { registerTemplateTools } from './tools/template.js';
-import { registerSystemTools } from './tools/system.js';
-import { registerCompositeTools } from './tools/composite.js';
-import { registerReferenceTools } from './tools/reference.js';
+// Centralized tool registration
+import { registerAllTools } from './tools/index.js';
 
 // Configuration from environment
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
@@ -64,19 +53,8 @@ function createMcpServer(): McpServer {
     },
   });
 
-  // Register all SiYuan tools
-  registerNotebookTools(server);
-  registerDocumentTools(server);
-  registerBlockTools(server);
-  registerSearchTools(server);
-  registerAssetTools(server);
-  registerExportTools(server);
-  registerFileTools(server);
-  registerAttributeTools(server);
-  registerTemplateTools(server);
-  registerSystemTools(server);
-  registerCompositeTools(server);
-  registerReferenceTools(server);
+  // Register all SiYuan tools (centralized)
+  registerAllTools(server);
 
   return server;
 }
@@ -380,7 +358,7 @@ async function main() {
         console.error(`[MCP] Authentication: Disabled (set MCP_BEARER_TOKEN to enable)`);
       }
       console.error(`[MCP] Session timeout: ${SESSION_TIMEOUT / 1000 / 60} minutes`);
-      console.error(`[MCP] Total tools registered: 53 (47 atomic + 6 composite)`);
+      console.error(`[MCP] Total tools registered: 49 (42 atomic + 6 composite + 1 reference)`);
     });
   } catch (error) {
     console.error('[MCP] Failed to start server:', error);

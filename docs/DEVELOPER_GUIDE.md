@@ -124,7 +124,7 @@ siyuan-mcp-server/
 └── dist/                      # Compiled JavaScript + types
 ```
 
-**Tool Count**: 52 tools (46 atomic + 6 composite)
+**Tool Count**: 49 tools (42 atomic + 6 composite + 1 reference)
 
 ### 1.4 Rationale for v2.0 Refactoring
 
@@ -136,7 +136,7 @@ siyuan-mcp-server/
 
 **Solution in v2.0**:
 - Direct tool registration for each API endpoint
-- LLMs see 52 specific tools with clear names
+- LLMs see 49 specific tools with clear names
 - 80-95% token reduction
 - Better type safety with Zod schemas
 
@@ -581,9 +581,10 @@ MCP Tool (JSON)
 
 **Version**: 2.0.0 (Production Ready ✅)
 
-**Tools Implemented**: 52/57 (91%)
-- 46 atomic tools (1:1 with SiYuan API)
+**Tools Implemented**: 49/57 (86%)
+- 42 atomic tools (1:1 with SiYuan API)
 - 6 composite smart tools
+- 1 reference tool
 
 **API Coverage**: 95%
 
@@ -606,7 +607,7 @@ MCP Tool (JSON)
 
 4. ✅ **Architecture Transformation**:
    - From: Single `executeCommand` meta-tool
-   - To: 52 atomic tools with direct registration
+   - To: 49 tools with direct registration (42 atomic + 6 composite + 1 reference)
    - Result: 80-95% token reduction
 
 ### 4.3 Deferred to v2.1 (5 tools)
@@ -841,4 +842,4 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 
 ---
 
-**Version**: 2.0.0 | **Status**: Production Ready ✅ | **Tools**: 52 (46 atomic + 6 composite)
+**Version**: 2.0.0 | **Status**: Production Ready ✅ | **Tools**: 49 (42 atomic + 6 composite + 1 reference)

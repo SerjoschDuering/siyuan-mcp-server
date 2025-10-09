@@ -29,6 +29,8 @@ export function registerExportTools(server: McpServer) {
     async ({ id }, _extra) => {
       const response = await siyuanClient.post('/api/export/exportMdContent', {
         id
+      }, {
+        timeout: 120000 // 2 minutes for exports
       });
 
       const exportData = response.data.data;
@@ -61,7 +63,9 @@ export function registerExportTools(server: McpServer) {
         requestBody.name = name;
       }
 
-      const response = await siyuanClient.post('/api/export/exportResources', requestBody);
+      const response = await siyuanClient.post('/api/export/exportResources', requestBody, {
+        timeout: 120000 // 2 minutes for exports
+      });
 
       const exportPath = response.data.data;
 

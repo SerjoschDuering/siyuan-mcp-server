@@ -50,10 +50,14 @@ This smart tool aggregates multiple API calls to provide:
 
 Perfect for understanding workspace structure without multiple manual calls.`,
     {
+      short: z.boolean()
+        .optional()
+        .default(true)
+        .describe('Slim format with just paths and IDs (default: true). Set to false for full metadata.'),
       includeContent: z.boolean()
         .optional()
         .default(true)
-        .describe('Include content previews (default: true)'),
+        .describe('Include content previews (default: true, ignored if short=true)'),
       maxDepth: z.number()
         .optional()
         .default(3)
@@ -64,7 +68,7 @@ Perfect for understanding workspace structure without multiple manual calls.`,
         .describe('Length of content preview (default: 200 chars)')
     },
     { readOnlyHint: true },
-    async ({ includeContent, maxDepth, contentLength }, _extra) => {
+    async ({ short, includeContent, maxDepth, contentLength }, _extra) => {
       try {
         // Step 1: Get all notebooks
         const notebooksResponse = await siyuanClient.post('/api/notebook/lsNotebooks', {});
@@ -107,38 +111,51 @@ Perfect for understanding workspace structure without multiple manual calls.`,
             notebookInfo.documents = await Promise.all(documents.map(async (doc: any) => {
               const docInfo: any = {
                 id: doc.id,
-                path: doc.hpath || doc.path,
-                created: doc.created,
-                updated: doc.updated,
-                size: formatSize(doc.size || 0)
+                path: doc.hpath || doc.path
               };
 
-              // Include content preview if requested
-              if (includeContent && doc.content) {
-                docInfo.preview = truncateContent(doc.content, contentLength);
-
+              // In short mode, only extract title
+              if (short) {
                 // Try to extract title from content
-                const titleMatch = doc.content.match(/^#\s+(.+)$/m);
-                if (titleMatch) {
-                  docInfo.title = titleMatch[1];
+                if (doc.content) {
+                  const titleMatch = doc.content.match(/^#\s+(.+)$/m);
+                  if (titleMatch) {
+                    docInfo.title = titleMatch[1];
+                  }
                 }
-              }
+              } else {
+                // Full mode: add all metadata
+                docInfo.created = doc.created;
+                docInfo.updated = doc.updated;
+                docInfo.size = formatSize(doc.size || 0);
 
-              // Get child block count for document structure insight
-              if (maxDepth > 1) {
-                const countQuery = `
-                  SELECT COUNT(*) as count
-                  FROM blocks
-                  WHERE root_id = '${doc.id}' AND type != 'd'
-                `;
+                // Include content preview if requested
+                if (includeContent && doc.content) {
+                  docInfo.preview = truncateContent(doc.content, contentLength);
 
-                try {
-                  const countResponse = await siyuanClient.post('/api/query/sql', {
-                    stmt: countQuery
-                  });
-                  docInfo.blockCount = countResponse.data.data[0]?.count || 0;
-                } catch {
-                  // Ignore count errors
+                  // Try to extract title from content
+                  const titleMatch = doc.content.match(/^#\s+(.+)$/m);
+                  if (titleMatch) {
+                    docInfo.title = titleMatch[1];
+                  }
+                }
+
+                // Get child block count for document structure insight
+                if (maxDepth > 1) {
+                  const countQuery = `
+                    SELECT COUNT(*) as count
+                    FROM blocks
+                    WHERE root_id = '${doc.id}' AND type != 'd'
+                  `;
+
+                  try {
+                    const countResponse = await siyuanClient.post('/api/query/sql', {
+                      stmt: countQuery
+                    });
+                    docInfo.blockCount = countResponse.data.data[0]?.count || 0;
+                  } catch {
+                    // Ignore count errors
+                  }
                 }
               }
 
@@ -162,17 +179,99 @@ Perfect for understanding workspace structure without multiple manual calls.`,
           timestamp: new Date().toISOString()
         };
 
-        // Format response
-        const response = {
-          summary: `Found ${stats.totalNotebooks} notebooks (${stats.openNotebooks} open) containing ${stats.totalDocuments} documents`,
-          statistics: stats,
-          tree: contentTree
-        };
+        // Format response as markdown
+        let markdown = `# Content Tree${short ? ' (Slim)' : ''}\n\n`;
+        markdown += `Found ${stats.totalNotebooks} notebooks (${stats.openNotebooks} open) containing ${stats.totalDocuments} documents\n\n`;
+
+        if (short) {
+          // SLIM FORMAT: Super compact tree with just IDs and paths
+          for (const notebook of contentTree) {
+            const icon = notebook.icon ? String.fromCodePoint(parseInt(notebook.icon, 16)) : '📓';
+            markdown += `## ${icon} ${notebook.name}\n`;
+
+            if (notebook.status === 'closed') {
+              markdown += `*Closed*\n\n`;
+              continue;
+            }
+
+            if (notebook.error) {
+              markdown += `*Error: ${notebook.error}*\n\n`;
+              continue;
+            }
+
+            if (!notebook.documents || notebook.documents.length === 0) {
+              markdown += `*Empty*\n\n`;
+              continue;
+            }
+
+            // Just list documents with minimal info
+            for (const doc of notebook.documents) {
+              const title = doc.title || 'Untitled';
+              markdown += `- ${title} → \`${doc.id}\`\n`;
+            }
+
+            markdown += `\n`;
+          }
+        } else {
+          // FULL FORMAT: Detailed metadata
+          markdown += `## Statistics\n`;
+          markdown += `- Total Notebooks: ${stats.totalNotebooks}\n`;
+          markdown += `- Open Notebooks: ${stats.openNotebooks}\n`;
+          markdown += `- Total Documents: ${stats.totalDocuments}\n`;
+          markdown += `- Timestamp: ${stats.timestamp}\n\n`;
+
+          markdown += `## Notebooks\n\n`;
+
+          for (const notebook of contentTree) {
+            const icon = notebook.icon ? String.fromCodePoint(parseInt(notebook.icon, 16)) : '📓';
+            markdown += `### ${icon} ${notebook.name}\n`;
+            markdown += `- ID: \`${notebook.id}\`\n`;
+            markdown += `- Status: ${notebook.closed ? 'Closed' : 'Open'}\n`;
+
+            if (notebook.status === 'closed') {
+              markdown += `- Documents: N/A (notebook is closed)\n\n`;
+              continue;
+            }
+
+            if (notebook.error) {
+              markdown += `- Error: ${notebook.error}\n\n`;
+              continue;
+            }
+
+            markdown += `- Documents: ${notebook.documentCount || 0}\n\n`;
+
+            if (notebook.documents && notebook.documents.length > 0) {
+              markdown += `#### Documents\n\n`;
+
+              for (let i = 0; i < notebook.documents.length; i++) {
+                const doc = notebook.documents[i];
+                markdown += `**${i + 1}. ${doc.title || 'Untitled'}** (\`${doc.id}\`)\n`;
+                markdown += `- Path: \`${doc.path}\`\n`;
+                markdown += `- Size: ${doc.size}\n`;
+                if (doc.created) markdown += `- Created: ${doc.created}\n`;
+                if (doc.updated) markdown += `- Updated: ${doc.updated}\n`;
+                if (doc.blockCount !== undefined) markdown += `- Blocks: ${doc.blockCount}\n`;
+
+                if (doc.preview) {
+                  markdown += `- Preview:\n`;
+                  const previewLines = doc.preview.split('\n');
+                  for (const line of previewLines) {
+                    markdown += `  > ${line}\n`;
+                  }
+                }
+
+                markdown += `\n`;
+              }
+            }
+
+            markdown += `---\n\n`;
+          }
+        }
 
         return {
           content: [{
             type: 'text',
-            text: JSON.stringify(response, null, 2)
+            text: markdown
           }]
         };
 
@@ -316,30 +415,69 @@ Ideal for understanding document organization without reading full content.`,
         };
         extractTOC(outline);
 
-        // Build response
-        const response = {
-          document: {
-            id: doc.id,
-            path: doc.hpath || doc.path,
-            created: doc.created,
-            updated: doc.updated,
-            title: doc.content?.match(/^#\s+(.+)$/m)?.[1] || 'Untitled'
-          },
-          statistics: {
-            totalBlocks: blocks.length,
-            blockTypes: typeCount,
-            headingCount: typeCount['h'] || 0,
-            paragraphCount: typeCount['p'] || 0,
-            listCount: (typeCount['l'] || 0) + (typeCount['i'] || 0)
-          },
-          tableOfContents: toc.map(h => `${h.indent}• ${h.text}`).join('\n'),
-          outline: outline
+        // Build markdown response
+        const docTitle = doc.content?.match(/^#\s+(.+)$/m)?.[1] || 'Untitled';
+
+        let markdown = `# Document Outline: ${docTitle}\n\n`;
+
+        markdown += `## Document Info\n`;
+        markdown += `- ID: \`${doc.id}\`\n`;
+        markdown += `- Path: \`${doc.hpath || doc.path}\`\n`;
+        markdown += `- Created: ${doc.created}\n`;
+        markdown += `- Updated: ${doc.updated}\n\n`;
+
+        markdown += `## Statistics\n`;
+        markdown += `- Total Blocks: ${blocks.length}\n`;
+        markdown += `- Headings: ${typeCount['h'] || 0}\n`;
+        markdown += `- Paragraphs: ${typeCount['p'] || 0}\n`;
+        markdown += `- Lists: ${(typeCount['l'] || 0) + (typeCount['i'] || 0)}\n`;
+        markdown += `- Code Blocks: ${typeCount['c'] || 0}\n`;
+        markdown += `- Tables: ${typeCount['t'] || 0}\n\n`;
+
+        if (toc.length > 0) {
+          markdown += `## Table of Contents\n\n`;
+          for (const h of toc) {
+            markdown += `${h.indent}• ${h.text}\n`;
+          }
+          markdown += `\n`;
+        }
+
+        markdown += `## Outline\n\n`;
+
+        // Recursive function to render outline as markdown
+        const renderOutline = (items: any[], depth: number = 0) => {
+          for (const item of items) {
+            const indent = '  '.repeat(depth);
+
+            if (item.type === 'h') {
+              markdown += `${indent}${'#'.repeat(item.headingLevel)} ${item.heading}\n`;
+              if (item.preview && includeContent) {
+                markdown += `${indent}  > ${truncateContent(item.preview, 100)}\n`;
+              }
+            } else if (item.type === 'p' && includeContent) {
+              markdown += `${indent}📝 ${truncateContent(item.preview || '', 80)}\n`;
+            } else if (item.type === 'l' && includeContent) {
+              markdown += `${indent}• ${truncateContent(item.preview || '', 80)}\n`;
+            } else if (item.type === 'i' && includeContent) {
+              markdown += `${indent}  - ${truncateContent(item.preview || '', 80)}\n`;
+            } else if (item.type === 'c' && includeContent) {
+              markdown += `${indent}\`\`\`code\`\`\`\n`;
+            } else if (item.type === 't' && includeContent) {
+              markdown += `${indent}📊 Table\n`;
+            }
+
+            if (item.children && item.children.length > 0) {
+              renderOutline(item.children, depth + 1);
+            }
+          }
         };
+
+        renderOutline(outline);
 
         return {
           content: [{
             type: 'text',
-            text: JSON.stringify(response, null, 2)
+            text: markdown
           }]
         };
 
@@ -506,19 +644,58 @@ More intelligent than basic search - shows what's around matches.`,
           return result;
         }));
 
-        // Build response
-        const response = {
-          query: query,
-          resultCount: resultsWithContext.length,
-          maxResults: maxResults,
-          results: resultsWithContext,
-          summary: `Found ${resultsWithContext.length} matches for "${query}"`
-        };
+        // Build markdown response
+        let markdown = `# Search Results: "${query}"\n\n`;
+        markdown += `Found ${resultsWithContext.length} matches (max: ${maxResults})\n\n`;
+
+        if (resultsWithContext.length === 0) {
+          markdown += `No matches found.\n`;
+        } else {
+          markdown += `## Matches\n\n`;
+
+          for (let i = 0; i < resultsWithContext.length; i++) {
+            const result = resultsWithContext[i];
+            markdown += `### ${i + 1}. Match in ${result.document?.title || 'Unknown Document'}\n`;
+            markdown += `- **Location**: \`${result.document?.path || 'Unknown'}\`\n`;
+            if (result.notebook) {
+              markdown += `- **Notebook**: ${result.notebook}\n`;
+            }
+            markdown += `- **Block ID**: \`${result.id}\`\n`;
+            markdown += `- **Type**: ${result.type}\n\n`;
+
+            // Show context if available
+            if (result.context) {
+              if (result.context.before && result.context.before.length > 0) {
+                markdown += `**Context Before:**\n`;
+                for (const block of result.context.before) {
+                  markdown += `> ${block.content}\n`;
+                }
+                markdown += `\n`;
+              }
+
+              markdown += `**Match:**\n`;
+              markdown += `> 🎯 ${result.preview || result.content}\n\n`;
+
+              if (result.context.after && result.context.after.length > 0) {
+                markdown += `**Context After:**\n`;
+                for (const block of result.context.after) {
+                  markdown += `> ${block.content}\n`;
+                }
+                markdown += `\n`;
+              }
+            } else {
+              markdown += `**Content:**\n`;
+              markdown += `> ${result.preview || result.content}\n\n`;
+            }
+
+            markdown += `---\n\n`;
+          }
+        }
 
         return {
           content: [{
             type: 'text',
-            text: JSON.stringify(response, null, 2)
+            text: markdown
           }]
         };
 
@@ -671,24 +848,55 @@ Perfect for understanding what's been worked on recently.`,
             changes: count
           }));
 
-        // Build response
-        const response = {
-          summary: {
-            totalChanges: recentBlocks.length,
-            period: `Last ${days} days`,
-            today: grouped.today.length,
-            yesterday: grouped.yesterday.length,
-            thisWeek: grouped.thisWeek.length,
-            older: grouped.older.length
-          },
-          mostActiveNotebooks: activitySummary,
-          recentContent: grouped
+        // Build markdown response
+        let markdown = `# Recent Content (Last ${days} days)\n\n`;
+
+        markdown += `## Summary\n`;
+        markdown += `- Total Changes: ${recentBlocks.length}\n`;
+        markdown += `- Today: ${grouped.today.length}\n`;
+        markdown += `- Yesterday: ${grouped.yesterday.length}\n`;
+        markdown += `- This Week: ${grouped.thisWeek.length}\n`;
+        markdown += `- Older: ${grouped.older.length}\n\n`;
+
+        if (activitySummary.length > 0) {
+          markdown += `## Most Active Notebooks\n\n`;
+          for (const nb of activitySummary) {
+            markdown += `- **${nb.notebook}**: ${nb.changes} changes\n`;
+          }
+          markdown += `\n`;
+        }
+
+        // Helper function to render a group of items
+        const renderGroup = (title: string, items: any[]) => {
+          if (items.length === 0) return;
+
+          markdown += `## ${title}\n\n`;
+
+          for (const item of items) {
+            const icon = item.type === 'd' ? '📄' : item.type === 'h' ? '📌' : '📝';
+            markdown += `${icon} **${item.title || 'Untitled'}**\n`;
+            markdown += `- Updated: ${item.updated}\n`;
+            markdown += `- Path: \`${item.path || 'Unknown'}\`\n`;
+            markdown += `- ID: \`${item.id}\`\n`;
+
+            if (item.preview) {
+              markdown += `- Preview:\n`;
+              markdown += `  > ${item.preview}\n`;
+            }
+
+            markdown += `\n`;
+          }
         };
+
+        renderGroup('Today', grouped.today);
+        renderGroup('Yesterday', grouped.yesterday);
+        renderGroup('This Week', grouped.thisWeek);
+        renderGroup('Older', grouped.older);
 
         return {
           content: [{
             type: 'text',
-            text: JSON.stringify(response, null, 2)
+            text: markdown
           }]
         };
 
@@ -754,16 +962,28 @@ Perfect for "add task to today's note" workflows without manual navigation.`,
           });
           const doc = docResponse.data.data?.[0];
 
+          // Build markdown response for existing document
+          let markdown = `# Daily Note (Existing)\n\n`;
+          markdown += `Today's daily note already exists.\n\n`;
+          markdown += `## Document Info\n`;
+          markdown += `- ID: \`${docId}\`\n`;
+          markdown += `- Path: \`${dailyNotePath}\`\n`;
+
+          if (doc) {
+            markdown += `- Created: ${doc.created}\n`;
+            markdown += `- Updated: ${doc.updated}\n\n`;
+
+            if (doc.content) {
+              const preview = truncateContent(doc.content, 300);
+              markdown += `## Content Preview\n\n`;
+              markdown += `${preview}\n`;
+            }
+          }
+
           return {
             content: [{
               type: 'text',
-              text: JSON.stringify({
-                status: 'exists',
-                id: docId,
-                path: dailyNotePath,
-                created: false,
-                document: doc || { id: docId }
-              }, null, 2)
+              text: markdown
             }]
           };
         }
@@ -791,16 +1011,19 @@ Perfect for "add task to today's note" workflows without manual navigation.`,
         });
         const newDocId = createResponse.data.data.id;
 
+        // Build markdown response for new document
+        let responseMarkdown = `# Daily Note (Created)\n\n`;
+        responseMarkdown += `✅ Created today's daily note.\n\n`;
+        responseMarkdown += `## Document Info\n`;
+        responseMarkdown += `- ID: \`${newDocId}\`\n`;
+        responseMarkdown += `- Path: \`${dailyNotePath}\`\n\n`;
+        responseMarkdown += `## Initial Content\n\n`;
+        responseMarkdown += `${truncateContent(markdown, 300)}\n`;
+
         return {
           content: [{
             type: 'text',
-            text: JSON.stringify({
-              status: 'created',
-              id: newDocId,
-              path: dailyNotePath,
-              created: true,
-              markdown: markdown.substring(0, 200)
-            }, null, 2)
+            text: responseMarkdown
           }]
         };
 
@@ -1012,18 +1235,52 @@ Perfect for "show me my tasks" workflows and task management.`,
         });
         stats.byNotebook = byNotebook;
 
-        // Build response
-        const response = {
-          total: stats.total,
-          status: status,
-          statistics: stats,
-          tasks: enrichedTasks
-        };
+        // Build markdown response
+        let markdown = `# Tasks (${status})\n\n`;
+
+        markdown += `## Summary\n`;
+        markdown += `- Total Tasks: ${stats.total}\n`;
+        markdown += `- Open: ${stats.open}\n`;
+        markdown += `- Completed: ${stats.completed}\n\n`;
+
+        if (Object.keys(stats.byNotebook).length > 0) {
+          markdown += `### Tasks by Notebook\n`;
+          for (const [notebook, count] of Object.entries(stats.byNotebook)) {
+            markdown += `- **${notebook}**: ${count}\n`;
+          }
+          markdown += `\n`;
+        }
+
+        if (enrichedTasks.length === 0) {
+          markdown += `No ${status} tasks found.\n`;
+        } else {
+          markdown += `## Task List\n\n`;
+
+          for (let i = 0; i < enrichedTasks.length; i++) {
+            const task = enrichedTasks[i];
+            const checkbox = task.completed ? '[x]' : '[ ]';
+            const emoji = task.completed ? '✅' : '⬜';
+
+            markdown += `### ${i + 1}. ${emoji} ${task.text}\n`;
+            markdown += `- Status: ${checkbox}\n`;
+            markdown += `- Document: **${task.document.title}**\n`;
+            markdown += `- Path: \`${task.path}\`\n`;
+            markdown += `- Notebook: ${task.notebook.name}\n`;
+            markdown += `- Updated: ${task.updated}\n`;
+            markdown += `- Task ID: \`${task.id}\`\n`;
+
+            if (task.context) {
+              markdown += `- Context: "${task.context}"\n`;
+            }
+
+            markdown += `\n`;
+          }
+        }
 
         return {
           content: [{
             type: 'text',
-            text: JSON.stringify(response, null, 2)
+            text: markdown
           }]
         };
 

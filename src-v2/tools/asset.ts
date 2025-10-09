@@ -57,8 +57,10 @@ The returned path (e.g., "assets/logo-20210719092549-9j5y79r.png") can be used i
       const formData = createMultipartForm(uploadFiles, assetsDirPath);
 
       try {
-        // Upload using multipart
-        const response = await siyuanClientInstance.postMultipart('/api/asset/upload', formData);
+        // Upload using multipart with 2-minute timeout
+        const response = await siyuanClientInstance.postMultipart('/api/asset/upload', formData, {
+          timeout: 120000 // 2 minutes for uploads
+        });
 
         const result = response.data.data;
         const errFiles = result.errFiles || [];

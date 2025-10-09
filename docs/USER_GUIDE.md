@@ -13,7 +13,7 @@ Instead of manually navigating through notebooks, creating documents, or searchi
 - *"Find all my open tasks and organize them by priority"*
 - *"Add this meeting summary to today's daily note"*
 
-The SiYuan MCP Server acts as a bridge between AI assistants and your SiYuan workspace, giving them **52 specialized tools (46 atomic + 6 composite)** to interact with your notes intelligently. Think of it as teaching Claude how to use SiYuan, so it can help you stay organized and productive.
+The SiYuan MCP Server acts as a bridge between AI assistants and your SiYuan workspace, giving them **49 specialized tools (42 atomic + 6 composite + 1 reference)** to interact with your notes intelligently. Think of it as teaching Claude how to use SiYuan, so it can help you stay organized and productive.
 
 **What makes it special?**
 - **Smart Tools**: Instead of 20 API calls, one "smart" tool gets you a complete workspace overview
@@ -32,7 +32,7 @@ Let's get started! 🚀
 
 ### What is SiYuan MCP Server?
 
-The SiYuan MCP Server is a Model Context Protocol server that enables AI assistants like Claude to directly interact with your SiYuan Note workspace. It provides 52 tools (46 atomic + 6 composite) for creating, reading, updating, and managing notes, documents, and files.
+The SiYuan MCP Server is a Model Context Protocol server that enables AI assistants like Claude to directly interact with your SiYuan Note workspace. It provides 49 tools (42 atomic + 6 composite + 1 reference) for creating, reading, updating, and managing notes, documents, and files.
 
 ### What Can You Accomplish?
 
@@ -66,7 +66,7 @@ SiYuan MCP Server v2.0 offers **two transport modes** to fit different use cases
 
 **Best for**: Remote access, multiple AI clients, production deployments
 
-- **File**: `dist/server.js`
+- **File**: `dist/server.js` (compiled from `src-v2/server.ts`)
 - **Transport**: Streamable HTTP
 - **Security**: Token sent via HTTP header (`X-SiYuan-Token`) per request
 - **Use case**: Remote access, multi-client scenarios, production servers
@@ -622,4 +622,4 @@ siyuan_sql({
 
 ---
 
-**Version**: 2.0.0 | **Tools**: 52 (46 atomic + 6 composite) | **Status**: Production Ready ✅
+**Version**: 2.0.0 | **Tools**: 49 (42 atomic + 6 composite + 1 reference) | **Status**: Production Ready ✅

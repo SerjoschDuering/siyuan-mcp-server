@@ -122,13 +122,3 @@ export function validateFile(file: UploadFile): string | null {
 
   return null;
 }
-
-/**
- * Extract filename from asset path returned by SiYuan
- *
- * Example: "assets/foo-20210719092549-9j5y79r.png" → "foo-20210719092549-9j5y79r.png"
- */
-export function extractAssetFilename(assetPath: string): string {
-  const parts = assetPath.split('/');
-  return parts[parts.length - 1];
-}
